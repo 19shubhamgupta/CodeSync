@@ -10,17 +10,18 @@ const workspaceSchema = new mongoose.Schema({
     {
       userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
       role: { type: String, enum: ["Admin", "Developer", "Visitor"] },
-      joinedAt: { type: Date, default: Date.now }
-    }
+      joinedAt: { type: Date, default: Date.now },
+    },
   ],
-//   githubRepo: {
-//     owner: String,
-//     name: String,
-//     url: String,
-//     branch: { type: String, default: "main" },
-//     lastSyncedAt: Date
-//   },
+  //   githubRepo: {
+  //     owner: String,
+  //     name: String,
+  //     url: String,
+  //     branch: { type: String, default: "main" },
+  //     lastSyncedAt: Date
+  //   },
   createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-}
-)
+  updatedAt: { type: Date, default: Date.now },
+});
+
+module.exports = mongoose.model("Workspace", workspaceSchema);

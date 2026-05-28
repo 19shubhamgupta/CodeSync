@@ -1,5 +1,4 @@
 const { createRemoteJWKSet, jwtVerify } = require("jose");
-const User = require("../models/user");
 
 let jwks;
 
@@ -16,7 +15,7 @@ const getJwks = () => {
   return jwks;
 };
 
-const verifyToken = async (req, res, next) => {
+const verifyClerkToken = async (req, res, next) => {
   const authHeader = req.headers.authorization || req.headers["authorization"];
   const bearerToken = authHeader?.startsWith("Bearer ")
     ? authHeader.split(" ")[1]
@@ -26,6 +25,7 @@ const verifyToken = async (req, res, next) => {
   if (!token) {
     return res.status(401).json({ message: "No token provided" });
   }
+
   try {
     if (!process.env.CLERK_ISSUER) {
       throw new Error("Missing CLERK_ISSUER in environment.");
@@ -36,17 +36,7 @@ const verifyToken = async (req, res, next) => {
       clockTolerance: 60,
     });
 
-    const user = await User.findOne({ clrek_user_id: payload.sub });
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    req.user = {
-      ...payload,
-      mongoId: user._id,
-    };
-
-    console.log("Token verified successfully for user:", payload.sub);
+    req.user = payload;
     next();
   } catch (err) {
     console.log("Token verification failed:", err);
@@ -54,4 +44,4 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-module.exports = verifyToken;
+module.exports = verifyClerkToken;

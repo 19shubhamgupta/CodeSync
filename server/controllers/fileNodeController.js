@@ -2,8 +2,8 @@ const fileNode = require("../models/fileNode");
 
 exports.createFileNode = async (req, res) => {
   try {
-    const { name, type, parentId, workspaceId } = req.body;
-    const userId = req.user.userId;
+    const { name, type, parentId, workspaceId, language } = req.body;
+    const userId = req.user?.mongoId;
 
     if (!name || !workspaceId) {
       return res
@@ -12,6 +12,7 @@ exports.createFileNode = async (req, res) => {
     }
     const newNode = new fileNode({
       name,
+      language: language || undefined,
       type: type || "folder",
       parentId: parentId || null,
       workspaceId,
@@ -59,7 +60,7 @@ exports.updateFileNode = async (req, res) => {
     delete update._id;
     delete update.__v;
 
-    const userId = req.user?.userId || req.user?.sub;
+    const userId = req.user?.mongoId;
     if (userId) {
       update.lastEditedBy = userId;
     }
