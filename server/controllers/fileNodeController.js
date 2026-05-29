@@ -1,4 +1,5 @@
-const fileNode = require("../models/fileNode");
+const { io } = require("../lib/socket");
+const FileNode = require("../models/fileNode");
 
 exports.createFileNode = async (req, res) => {
   try {
@@ -10,7 +11,7 @@ exports.createFileNode = async (req, res) => {
         .status(400)
         .json({ message: "Name and workspaceId are required" });
     }
-    const newNode = new fileNode({
+    const newNode = new FileNode({
       name,
       language: language || undefined,
       type: type || "folder",
@@ -37,7 +38,7 @@ exports.getFileNodes = async (req, res) => {
     }
 
     const parentId = req.query.parentId || null;
-    const files = await fileNode.find({ workspaceId, parentId });
+    const files = await FileNode.find({ workspaceId, parentId });
 
     return res.status(200).json({
       message: "File nodes fetched successfully",
@@ -56,6 +57,11 @@ exports.updateFileNode = async (req, res) => {
       return res.status(400).json({ message: "FileNode id required" });
     }
 
+    const fileNodeDoc = await FileNode.findById(fileNodeId);
+    if (!fileNodeDoc) {
+      return res.status(400).json({ message: "No such File exists" });
+    }
+
     const update = { ...req.body };
     delete update._id;
     delete update.__v;
@@ -65,7 +71,8 @@ exports.updateFileNode = async (req, res) => {
       update.lastEditedBy = userId;
     }
 
-    const updatedNode = await fileNode.findByIdAndUpdate(fileNodeId, update, {
+    console.log("Req came to update: ", userId, update);
+    const updatedNode = await FileNode.findByIdAndUpdate(fileNodeId, update, {
       new: true,
       runValidators: true,
     });
@@ -74,6 +81,14 @@ exports.updateFileNode = async (req, res) => {
       return res.status(404).json({ message: "File node not found" });
     }
 
+    if (Object.prototype.hasOwnProperty.call(update, "content")) {
+      io.to(`workspace:${fileNodeDoc.workspaceId}`).emit("file:edited", {
+        fileId: updatedNode._id.toString(),
+        content: updatedNode.content || "",
+        userId,
+        timestamp: new Date().toISOString(),
+      });
+    }
     return res.status(200).json({
       message: "File node updated successfully",
       fileNode: updatedNode,

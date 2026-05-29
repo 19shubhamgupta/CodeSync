@@ -1,4 +1,3 @@
-import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
@@ -27,7 +26,6 @@ const router = createBrowserRouter([
 ]);
 
 createRoot(document.getElementById("root")).render(
-  <StrictMode>
     <Provider store={store}>
       <ClerkProvider
         publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}
@@ -35,5 +33,4 @@ createRoot(document.getElementById("root")).render(
         <RouterProvider router={router} />
       </ClerkProvider>
     </Provider>
-  </StrictMode>,
 );

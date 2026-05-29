@@ -49,6 +49,12 @@ const fileTreeSlice = createSlice({
     setSelectedFile(state, action) {
       state.selectedFileId = action.payload;
     },
+    updateNodeContent(state, action) {
+      const { fileId, content } = action.payload;
+      if (state.nodeById[fileId]) {
+        state.nodeById[fileId].content = content;
+      }
+    },
     clearTree(state) {
       state.nodesByParentId = {};
       state.nodeById = {};
@@ -82,6 +88,6 @@ const fileTreeSlice = createSlice({
   },
 });
 
-export const { toggleFolder, setSelectedFile, clearTree } =
+export const { toggleFolder, setSelectedFile, updateNodeContent, clearTree } =
   fileTreeSlice.actions;
 export default fileTreeSlice.reducer;

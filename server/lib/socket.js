@@ -40,6 +40,23 @@ io.on("connection", async (socket) => {
     console.log("User left workspace", socket.id, workspaceId);
   });
 
+  socket.on(
+    "file:edit",
+    ({ workspaceId, fileId, content, userId, timestamp }) => {
+      if (!workspaceId || !fileId) {
+        return;
+      }
+
+      socket.to(getWorkspaceRoom(workspaceId)).emit("file:edited", {
+        workspaceId,
+        fileId,
+        content: content || "",
+        userId,
+        timestamp: timestamp || new Date().toISOString(),
+      });
+    },
+  );
+
   socket.on("disconnect", () => {
     if (userId) {
       delete userSocketMap[userId];

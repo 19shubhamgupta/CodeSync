@@ -1,7 +1,7 @@
 import Editor from "@monaco-editor/react";
 
-const EditorPane = ({ file }) => {
-    console.log("Rendering EditorPane with file:", file);
+const EditorPane = ({ file, onChange, onSave }) => {
+  console.log("Rendering EditorPane with file:", file);
   if (!file || file.type !== "file") {
     return (
       <section className="flex flex-1 items-center justify-center bg-slate-950">
@@ -22,6 +22,15 @@ const EditorPane = ({ file }) => {
         theme="vs-dark"
         language={file.language || "plaintext"}
         value={file.content || ""}
+        onChange={onChange}
+        onMount={(editor, monaco) => {
+          if (!onSave) {
+            return;
+          }
+          editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+            onSave();
+          });
+        }}
         options={{
           minimap: { enabled: false },
           fontSize: 14,
