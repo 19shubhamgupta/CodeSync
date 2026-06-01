@@ -82,9 +82,8 @@ exports.updateFileNode = async (req, res) => {
     }
 
     if (Object.prototype.hasOwnProperty.call(update, "content")) {
-      io.to(`workspace:${fileNodeDoc.workspaceId}`).emit("file:edited", {
+      io.to(`workspace:${fileNodeDoc.workspaceId}`).emit("file:saved", {
         fileId: updatedNode._id.toString(),
-        content: updatedNode.content || "",
         userId,
         timestamp: new Date().toISOString(),
       });

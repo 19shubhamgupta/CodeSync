@@ -16,8 +16,12 @@ import {
   disconnectWorkspaceSocket,
   saveFile,
   listenToFileChanges,
+  listenToFileState,
+  listenToOpAck,
   emitFileEdit,
+  initializeFileState,
 } from "../store/workspaceSlice";
+import { applyOperation, calculateOperations, transform } from "../utils/ot";
 
 const CodingSpacePage = () => {
   const { workspaceId } = useParams();
@@ -34,6 +38,10 @@ const CodingSpacePage = () => {
   const latestContentRef = useRef("");
   const lastSavedContentRef = useRef("");
   const previousFileIdRef = useRef(null);
+  const previousContentRef = useRef("");
+  const lastSentContentRef = useRef("");
+  const revisionRef = useRef(0);
+  const pendingOpsRef = useRef([]);
   const suppressEmitRef = useRef(false);
   const typingTimerRef = useRef(null);
 
@@ -80,33 +88,6 @@ const CodingSpacePage = () => {
     [dispatch, getToken, selectedFileId],
   );
 
-  useEffect(() => {
-    if (!isSignedIn || !workspaceId) {
-      return;
-    }
-    const loadRoot = async () => {
-      dispatch(clearTree());
-      const token = await getToken();
-      if (token) {
-        dispatch(fetchNodes({ workspaceId, parentId: null, token }));
-      }
-    };
-
-    loadRoot();
-  }, [dispatch, getToken, isSignedIn, workspaceId]);
-
-  useEffect(() => {
-    if (!isSignedIn || !workspaceId || !userId) {
-      return;
-    }
-
-    dispatch(connectWorkspaceSocket({ workspaceId, userId }));
-
-    return () => {
-      dispatch(disconnectWorkspaceSocket({ workspaceId }));
-    };
-  }, [dispatch, isSignedIn, userId, workspaceId]);
-
   const handleFolderToggle = async (folderId) => {
     dispatch(toggleFolder(folderId));
     const hasLoaded = nodesByParentId[folderId];
@@ -124,6 +105,36 @@ const CodingSpacePage = () => {
 
   const selectedFile = selectedFileId ? nodeById[selectedFileId] : null;
 
+  //for loading root folders
+  useEffect(() => {
+    if (!isSignedIn || !workspaceId) {
+      return;
+    }
+    const loadRoot = async () => {
+      dispatch(clearTree());
+      const token = await getToken();
+      if (token) {
+        dispatch(fetchNodes({ workspaceId, parentId: null, token }));
+      }
+    };
+
+    loadRoot();
+  }, [dispatch, getToken, isSignedIn, workspaceId]);
+
+  //for establishing socket connection
+  useEffect(() => {
+    if (!isSignedIn || !workspaceId || !userId) {
+      return;
+    }
+
+    dispatch(connectWorkspaceSocket({ workspaceId, userId }));
+
+    return () => {
+      dispatch(disconnectWorkspaceSocket({ workspaceId }));
+    };
+  }, [dispatch, isSignedIn, userId, workspaceId]);
+
+  //for saving when switching b/w files
   useEffect(() => {
     const previousFileId = previousFileIdRef.current;
     if (previousFileId && previousFileId !== selectedFileId) {
@@ -135,9 +146,14 @@ const CodingSpacePage = () => {
       const initialContent = selectedFile?.content || "";
       latestContentRef.current = initialContent;
       lastSavedContentRef.current = initialContent;
+      previousContentRef.current = initialContent;
+      lastSentContentRef.current = initialContent;
+      revisionRef.current = 0;
+      pendingOpsRef.current = [];
     }
   }, [saveCurrentFile, selectedFileId]);
 
+  //calls saveCurrentFile after every 3s
   useEffect(() => {
     if (!isSignedIn || !workspaceId || !selectedFileId) {
       return;
@@ -151,11 +167,22 @@ const CodingSpacePage = () => {
 
   useEffect(() => {
     if (!selectedFileId) {
+      return;
+    }
+
+    initializeFileState({
+      fileId: selectedFileId,
+      initialContent: selectedFile?.content || "",
+    });
+  }, [selectedFileId]);
+
+  useEffect(() => {
+    if (!selectedFileId) {
       return undefined;
     }
 
-    const unsubscribe = listenToFileChanges(
-      ({ fileId, content, userId: editorUserId }) => {
+    const unsubscribeEdits = listenToFileChanges(
+      ({ fileId, operation, userId: editorUserId, revision }) => {
         if (fileId !== selectedFileId) {
           return;
         }
@@ -163,15 +190,62 @@ const CodingSpacePage = () => {
           console.log("Received own edit, ignoring", { fileId });
           return;
         }
+
+        let transformedOp = { ...operation };
+        pendingOpsRef.current.forEach((pendingOp) => {
+          transformedOp = transform(pendingOp, transformedOp);
+        });
+
+        const currentContent = latestContentRef.current || "";
+        const newContent = applyOperation(currentContent, transformedOp);
+
         console.log("Received external edit", { fileId, editorUserId });
         suppressEmitRef.current = true;
-        latestContentRef.current = content || "";
-        lastSavedContentRef.current = content || "";
-        dispatch(updateNodeContent({ fileId, content: content || "" }));
+        latestContentRef.current = newContent;
+        lastSavedContentRef.current = newContent;
+        previousContentRef.current = newContent;
+        lastSentContentRef.current = newContent;
+        if (typeof revision === "number") {
+          revisionRef.current = revision;
+        }
+        dispatch(updateNodeContent({ fileId, content: newContent }));
       },
     );
 
-    return unsubscribe;
+    const unsubscribeState = listenToFileState(
+      ({ fileId, content, revision }) => {
+        if (fileId !== selectedFileId) {
+          return;
+        }
+        const nextContent = content || "";
+        latestContentRef.current = nextContent;
+        lastSavedContentRef.current = nextContent;
+        previousContentRef.current = nextContent;
+        lastSentContentRef.current = nextContent;
+        revisionRef.current = typeof revision === "number" ? revision : 0;
+        pendingOpsRef.current = [];
+        suppressEmitRef.current = true;
+        dispatch(updateNodeContent({ fileId, content: nextContent }));
+      },
+    );
+
+    const unsubscribeAck = listenToOpAck(({ fileId, revision }) => {
+      if (fileId !== selectedFileId) {
+        return;
+      }
+      if (pendingOpsRef.current.length > 0) {
+        pendingOpsRef.current.shift();
+      }
+      if (typeof revision === "number") {
+        revisionRef.current = revision;
+      }
+    });
+
+    return () => {
+      unsubscribeEdits();
+      unsubscribeState();
+      unsubscribeAck();
+    };
   }, [dispatch, selectedFileId, userId]);
 
   useEffect(() => {
@@ -190,6 +264,7 @@ const CodingSpacePage = () => {
 
     if (suppressEmitRef.current) {
       suppressEmitRef.current = false;
+      previousContentRef.current = value ?? "";
       return;
     }
 
@@ -200,6 +275,7 @@ const CodingSpacePage = () => {
       fileId: selectedFileId,
       length: content.length,
     });
+    previousContentRef.current = content;
 
     if (!workspaceId || !userId) {
       return;
@@ -210,12 +286,26 @@ const CodingSpacePage = () => {
     }
 
     typingTimerRef.current = setTimeout(() => {
-      emitFileEdit({
-        workspaceId,
-        fileId: selectedFileId,
-        content,
-        userId,
+      const baseContent = lastSentContentRef.current || "";
+      const currentContent = latestContentRef.current || "";
+      const operations = calculateOperations(baseContent, currentContent);
+      if (operations.length === 0) {
+        return;
+      }
+
+      operations.forEach((operation) => {
+        const baseRevision = revisionRef.current + pendingOpsRef.current.length;
+        pendingOpsRef.current.push(operation);
+        emitFileEdit({
+          workspaceId,
+          fileId: selectedFileId,
+          operation,
+          userId,
+          baseRevision,
+        });
       });
+
+      lastSentContentRef.current = currentContent;
     }, 200);
   };
 

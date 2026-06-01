@@ -188,20 +188,70 @@ export const listenToFileChanges = (callback) => {
   };
 };
 
-export const emitFileEdit = ({ workspaceId, fileId, content, userId }) => {
+export const listenToFileState = (callback) => {
+  if (!workspaceSocket) {
+    return () => {};
+  }
+
+  const handler = (data) => {
+    callback(data);
+  };
+
+  workspaceSocket.on("file:state", handler);
+
+  return () => {
+    workspaceSocket.off("file:state", handler);
+  };
+};
+
+export const listenToOpAck = (callback) => {
+  if (!workspaceSocket) {
+    return () => {};
+  }
+
+  const handler = (data) => {
+    callback(data);
+  };
+
+  workspaceSocket.on("op:ack", handler);
+
+  return () => {
+    workspaceSocket.off("op:ack", handler);
+  };
+};
+
+export const initializeFileState = ({ fileId, initialContent }) => {
+  if (!workspaceSocket || !fileId) {
+    return;
+  }
+
+  workspaceSocket.emit("file:open", {
+    fileId,
+    initialContent: initialContent || "",
+  });
+};
+
+export const emitFileEdit = ({
+  workspaceId,
+  fileId,
+  operation,
+  userId,
+  baseRevision,
+}) => {
   if (!workspaceSocket) {
     return;
   }
 
-  if (!workspaceId || !fileId) {
+  if (!workspaceId || !fileId || !operation) {
     return;
   }
 
   workspaceSocket.emit("file:edit", {
     workspaceId,
     fileId,
-    content: content || "",
+    operation,
     userId,
+    baseRevision,
     timestamp: new Date().toISOString(),
   });
 };
