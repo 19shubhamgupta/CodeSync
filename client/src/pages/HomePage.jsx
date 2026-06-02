@@ -172,7 +172,7 @@ const HomePage = () => {
       </section>
 
       <section id="collab" className="mx-auto w-full max-w-6xl px-6 pb-16">
-        <div className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900/80 to-slate-950 p-8 md:p-12">
+        <div className="rounded-3xl border border-slate-800 bg-linear-to-br from-slate-900/80 to-slate-950 p-8 md:p-12">
           <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
             <div>
               <h2 className="text-3xl font-semibold text-slate-50 font-[Space_Grotesk]">
