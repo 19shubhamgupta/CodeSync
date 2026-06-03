@@ -1,5 +1,6 @@
 const Workspace = require("../models/workspace");
 const User = require("../models/user");
+const templateService = require("../services/templateService");
 
 exports.getWorkspaceByUserId = async (req, res) => {
   try {
@@ -127,3 +128,74 @@ exports.addMemberToWorkspace = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+exports.getTemplates = async (req, res) => {
+  try {
+    const templates = templateService.getAllTemplates();
+    return res.status(200).json({ templates });
+  } catch (error) {
+    console.error("Error fetching templates:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.importTemplateToWorkspace = async (req, res) => {
+  try {
+    const userId = req.user?.mongoId;
+    if (!userId) {
+      return res.status(400).json({ message: "User ID not found in token" });
+    }
+
+    const workspaceId = req.params.id;
+    const { templateId, rootName } = req.body;
+
+    if (!templateId) {
+      return res.status(400).json({ message: "templateId is required" });
+    }
+
+    const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return res.status(404).json({ message: "Workspace not found" });
+    }
+
+    const isOwner = workspace.ownerId?.toString() === userId.toString();
+    const isMember = workspace.members.some(
+      (member) => member.userId?.toString() === userId.toString(),
+    );
+
+    if (!isOwner && !isMember) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const result = await templateService.copyTemplateToWorkspace({
+      templateId,
+      workspaceId,
+      rootName,
+    });
+
+    return res.status(201).json({
+      message: "Template imported successfully",
+      ...result,
+    });
+  } catch (error) {
+    console.error("Error importing template:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.runProject = async (req, res) => {
+  try{
+    const fileId = req.params.fileId;
+    const workspaceId = req.params.workspaceId;
+    if(!fileId || !workspaceId) return res.status(400).json({message : "Missing Parameters"})
+    
+    const file = await fileNode.findOneById(fileId);
+
+    
+
+
+  }catch(err){
+    console.log("Err in running the project" , err);
+    res.status(500).json({message : "Internal server Error"});
+  }
+}

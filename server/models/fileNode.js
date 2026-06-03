@@ -16,7 +16,13 @@ const fileNodeSchema = new mongoose.Schema({
   // Only for files
   language: String,
   content: String,
-
+  isRunnaable : {
+    type : Boolean,
+    default : false,
+  },
+  runType: {
+    type : String,
+  },
   // Only for folders
   children: [
     {

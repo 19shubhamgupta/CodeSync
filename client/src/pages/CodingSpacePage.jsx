@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { useDispatch, useSelector } from "react-redux";
 import FolderSidebar from "../components/CodingSpace/FolderSidebar";
 import EditorPane from "../components/CodingSpace/EditorPane";
+import TemplateImportModal from "../components/TemplateImportModal";
 import {
   clearTree,
   fetchNodes,
@@ -44,6 +45,17 @@ const CodingSpacePage = () => {
   const pendingOpsRef = useRef([]);
   const suppressEmitRef = useRef(false);
   const typingTimerRef = useRef(null);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateError, setTemplateError] = useState(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [templateRootName, setTemplateRootName] = useState("");
+
+  const apiBaseUrl = useMemo(
+    () => import.meta.env.VITE_API_BASE_URL || "http://localhost:5000",
+    [],
+  );
 
   const saveCurrentFile = useCallback(
     async ({ fileId, force } = {}) => {
@@ -104,6 +116,93 @@ const CodingSpacePage = () => {
   };
 
   const selectedFile = selectedFileId ? nodeById[selectedFileId] : null;
+
+  const handleOpenTemplateModal = () => {
+    setIsTemplateModalOpen(true);
+  };
+
+  const handleCloseTemplateModal = () => {
+    setIsTemplateModalOpen(false);
+    setSelectedTemplateId("");
+    setTemplateRootName("");
+    setTemplateError(null);
+  };
+
+  const loadTemplates = useCallback(async () => {
+    if (!isSignedIn) {
+      return;
+    }
+
+    setTemplateLoading(true);
+    setTemplateError(null);
+
+    try {
+      const token = await getToken();
+      const response = await fetch(`${apiBaseUrl}/api/workspace/templates`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to load templates");
+      }
+
+      const data = await response.json();
+      setTemplates(data.templates || []);
+    } catch (error) {
+      setTemplateError(error.message || "Failed to load templates");
+    } finally {
+      setTemplateLoading(false);
+    }
+  }, [apiBaseUrl, getToken, isSignedIn]);
+
+  useEffect(() => {
+    if (isTemplateModalOpen) {
+      loadTemplates();
+    }
+  }, [isTemplateModalOpen, loadTemplates]);
+
+  const handleImportTemplate = async () => {
+    if (!workspaceId || !selectedTemplateId) {
+      return;
+    }
+
+    try {
+      const token = await getToken();
+      const response = await fetch(
+        `${apiBaseUrl}/api/workspace/${workspaceId}/import-template`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            templateId: selectedTemplateId,
+            rootName: templateRootName.trim() || undefined,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to import template");
+      }
+
+      handleCloseTemplateModal();
+      dispatch(clearTree());
+      const refreshToken = await getToken();
+      if (refreshToken) {
+        dispatch(
+          fetchNodes({ workspaceId, parentId: null, token: refreshToken }),
+        );
+      }
+    } catch (error) {
+      setTemplateError(error.message || "Failed to import template");
+    }
+  };
 
   //for loading root folders
   useEffect(() => {
@@ -315,22 +414,52 @@ const CodingSpacePage = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="flex min-h-screen">
-        <FolderSidebar
-          nodesByParentId={nodesByParentId}
-          nodeById={nodeById}
-          statusByParentId={statusByParentId}
-          errorByParentId={errorByParentId}
-          expandedFolderIds={expandedFolderIds}
-          selectedFileId={selectedFileId}
-          onToggleFolder={handleFolderToggle}
-          onSelectFile={handleFileSelect}
+      <div className="flex min-h-screen flex-col">
+        <header className="flex items-center justify-between border-b border-slate-800 bg-slate-950/80 px-6 py-4">
+          <div>
+            <h1 className="text-base font-semibold text-slate-100">
+              Workspace
+            </h1>
+            <p className="text-xs text-slate-400">
+              Import a template to add multiple stacks.
+            </p>
+          </div>
+          <button
+            className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-4 py-2 text-xs font-semibold text-cyan-200 hover:border-cyan-400"
+            onClick={handleOpenTemplateModal}
+          >
+            Import Template
+          </button>
+        </header>
+        <TemplateImportModal
+          isOpen={isTemplateModalOpen}
+          templates={templates}
+          loading={templateLoading}
+          error={templateError}
+          selectedTemplateId={selectedTemplateId}
+          rootName={templateRootName}
+          onSelectTemplate={setSelectedTemplateId}
+          onRootNameChange={setTemplateRootName}
+          onClose={handleCloseTemplateModal}
+          onImport={handleImportTemplate}
         />
-        <EditorPane
-          file={selectedFile}
-          onChange={handleEditorChange}
-          onSave={handleEditorSave}
-        />
+        <div className="flex min-h-screen">
+          <FolderSidebar
+            nodesByParentId={nodesByParentId}
+            nodeById={nodeById}
+            statusByParentId={statusByParentId}
+            errorByParentId={errorByParentId}
+            expandedFolderIds={expandedFolderIds}
+            selectedFileId={selectedFileId}
+            onToggleFolder={handleFolderToggle}
+            onSelectFile={handleFileSelect}
+          />
+          <EditorPane
+            file={selectedFile}
+            onChange={handleEditorChange}
+            onSave={handleEditorSave}
+          />
+        </div>
       </div>
     </div>
   );

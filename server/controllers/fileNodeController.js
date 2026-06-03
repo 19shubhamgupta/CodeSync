@@ -5,6 +5,8 @@ exports.createFileNode = async (req, res) => {
   try {
     const { name, type, parentId, workspaceId, language } = req.body;
     const userId = req.user?.mongoId;
+    let runnable = false;
+    if(type === "file" && language) runnable = true; 
 
     if (!name || !workspaceId) {
       return res
@@ -17,6 +19,8 @@ exports.createFileNode = async (req, res) => {
       type: type || "folder",
       parentId: parentId || null,
       workspaceId,
+      isRunnable : runnable,
+      runType : language,
       lastEditedBy: userId,
     });
     await newNode.save();
