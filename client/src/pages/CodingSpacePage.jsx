@@ -51,6 +51,11 @@ const CodingSpacePage = () => {
   const [templateError, setTemplateError] = useState(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateRootName, setTemplateRootName] = useState("");
+  const [runLogs, setRunLogs] = useState([]);
+  const [runStatus, setRunStatus] = useState("idle");
+  const [runError, setRunError] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const logCursorRef = useRef(0);
 
   const apiBaseUrl = useMemo(
     () => import.meta.env.VITE_API_BASE_URL || "http://localhost:5000",
@@ -412,6 +417,110 @@ const CodingSpacePage = () => {
     saveCurrentFile({ force: true });
   }, [saveCurrentFile]);
 
+  const fetchLogs = useCallback(async () => {
+    if (!workspaceId) {
+      return;
+    }
+
+    const token = await getToken();
+    if (!token) {
+      return;
+    }
+
+    try {
+      const url = new URL(`${apiBaseUrl}/api/workspace/${workspaceId}/logs`);
+      url.searchParams.set("since", String(logCursorRef.current));
+      const response = await fetch(url.toString(), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json();
+      const lines = data.lines || [];
+      if (lines.length > 0) {
+        logCursorRef.current = data.next ?? logCursorRef.current + lines.length;
+        setRunLogs((prev) => {
+          const next = [...prev, ...lines];
+          return next.length > 1000 ? next.slice(-1000) : next;
+        });
+      }
+    } catch (error) {
+      console.log("Log fetch failed", error);
+    }
+  }, [apiBaseUrl, getToken, workspaceId]);
+
+  useEffect(() => {
+    if (runStatus !== "running") {
+      return undefined;
+    }
+
+    fetchLogs();
+    const intervalId = setInterval(() => {
+      fetchLogs();
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [fetchLogs, runStatus]);
+
+  const handleRunNode = useCallback(
+    async (node) => {
+      if (!workspaceId || !node?._id) {
+        return;
+      }
+
+      setRunStatus("starting");
+      setRunError(null);
+      setPreviewUrl(null);
+      setRunLogs([]);
+      logCursorRef.current = 0;
+
+      await saveCurrentFile({ force: true });
+
+      try {
+        const token = await getToken();
+        if (!token) {
+          setRunStatus("idle");
+          return;
+        }
+
+        const response = await fetch(
+          `${apiBaseUrl}/api/workspace/${workspaceId}/run/${node._id}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(message || "Failed to run project");
+        }
+
+        const data = await response.json();
+        setRunStatus("running");
+        setPreviewUrl(data.previewUrl || null);
+
+        const shouldOpenPreview = ["react-vite", "cra", "nextjs"].includes(
+          data.projectType,
+        );
+        if (shouldOpenPreview && data.previewUrl) {
+          window.open(`${apiBaseUrl}${data.previewUrl}`, "_blank");
+        }
+      } catch (error) {
+        setRunStatus("failed");
+        setRunError(error.message || "Failed to run project");
+      }
+    },
+    [apiBaseUrl, getToken, saveCurrentFile, workspaceId],
+  );
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="flex min-h-screen flex-col">
@@ -453,12 +562,49 @@ const CodingSpacePage = () => {
             selectedFileId={selectedFileId}
             onToggleFolder={handleFolderToggle}
             onSelectFile={handleFileSelect}
+            onRunNode={handleRunNode}
           />
-          <EditorPane
-            file={selectedFile}
-            onChange={handleEditorChange}
-            onSave={handleEditorSave}
-          />
+          <div className="flex flex-1 flex-col">
+            <EditorPane
+              file={selectedFile}
+              onChange={handleEditorChange}
+              onSave={handleEditorSave}
+            />
+            <section className="border-t border-slate-800 bg-slate-950/90">
+              <div className="flex items-center justify-between px-4 py-2 text-xs uppercase tracking-[0.2em] text-slate-400">
+                <span>Logs</span>
+                {runStatus === "running" && (
+                  <span className="text-emerald-300">Running</span>
+                )}
+                {runStatus === "starting" && (
+                  <span className="text-cyan-300">Starting</span>
+                )}
+                {runStatus === "failed" && (
+                  <span className="text-rose-300">Failed</span>
+                )}
+              </div>
+              <div className="h-40 overflow-auto px-4 pb-3 text-xs text-slate-200">
+                {runError && (
+                  <div className="mb-2 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-rose-200">
+                    {runError}
+                  </div>
+                )}
+                {runLogs.length === 0 && !runError && (
+                  <div className="text-slate-500">No logs yet.</div>
+                )}
+                {runLogs.length > 0 && (
+                  <pre className="whitespace-pre-wrap">
+                    {runLogs.join("\n")}
+                  </pre>
+                )}
+                {previewUrl && runStatus === "running" && (
+                  <div className="mt-2 text-slate-400">
+                    Preview: {`${apiBaseUrl}${previewUrl}`}
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     </div>

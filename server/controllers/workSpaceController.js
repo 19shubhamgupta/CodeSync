@@ -1,6 +1,16 @@
 const Workspace = require("../models/workspace");
 const User = require("../models/user");
+const FileNode = require("../models/fileNode");
 const templateService = require("../services/templateService");
+const { buildSnapshot } = require("../utils/code-execution/snapShotService");
+const { detectProject } = require("../utils/code-execution/detectionService");
+const { writeTempDir } = require("../utils/code-execution/generateFileService");
+const {
+  runWorkspace,
+  stopWorkspace,
+  getRunInfo,
+  getLogs,
+} = require("../utils/code-execution/dockerRunService");
 
 exports.getWorkspaceByUserId = async (req, res) => {
   try {
@@ -184,18 +194,106 @@ exports.importTemplateToWorkspace = async (req, res) => {
 };
 
 exports.runProject = async (req, res) => {
-  try{
-    const fileId = req.params.fileId;
-    const workspaceId = req.params.workspaceId;
-    if(!fileId || !workspaceId) return res.status(400).json({message : "Missing Parameters"})
-    
-    const file = await fileNode.findOneById(fileId);
+  try {
+    const { fileId, workspaceId } = req.params;
+    if (!fileId || !workspaceId) {
+      return res.status(400).json({ message: "Missing parameters" });
+    }
 
-    
+    const node = await FileNode.findById(fileId);
+    if (!node || node.workspaceId?.toString() !== workspaceId) {
+      return res.status(404).json({ message: "Node not found" });
+    }
 
+    if (!node.isRunnable) {
+      return res.status(400).json({ message: "Node is not runnable" });
+    }
 
-  }catch(err){
-    console.log("Err in running the project" , err);
-    res.status(500).json({message : "Internal server Error"});
+    let rootNode = node.type === "folder" ? node : null;
+    if (!rootNode && node.parentId) {
+      rootNode = await FileNode.findById(node.parentId);
+    }
+    if (!rootNode) {
+      return res
+        .status(400)
+        .json({ message: "Runnable node has no root folder" });
+    }
+
+    while (rootNode.parentId) {
+      const parent = await FileNode.findById(rootNode.parentId);
+      if (!parent) break;
+      rootNode = parent;
+    }
+
+    const rootFolderId = rootNode._id.toString();
+
+    console.log("Req came to exe : ", fileId);
+    // 1. Snapshot
+    const fileMap = await buildSnapshot(workspaceId, rootFolderId);
+    console.log("FileMap generated is : ", fileMap);
+    // 2. Detect
+    const projectInfo = detectProject(fileMap);
+    console.log("Project info is : ", projectInfo);
+    // 3. Write temp files
+    const tempDir = writeTempDir(workspaceId, fileMap);
+
+    // 4. Build + run in Docker
+    const { hostPort } = await runWorkspace(workspaceId, tempDir, projectInfo);
+    console.log("Project running successfully  on port : ", hostPort);
+    res.json({
+      success: true,
+      previewUrl: `/preview/${workspaceId}`,
+      port: hostPort,
+      projectType: projectInfo.type,
+    });
+  } catch (err) {
+    console.log("Error in running the project", err);
+    res.status(500).json({ message: err.message || "Internal server error" });
   }
-}
+};
+
+exports.stopProject = async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    if (!workspaceId) {
+      return res.status(400).json({ message: "Missing parameters" });
+    }
+
+    await stopWorkspace(workspaceId);
+    res.json({ success: true });
+  } catch (err) {
+    console.log("Error stopping project", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.getRunStatus = async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    if (!workspaceId) {
+      return res.status(400).json({ message: "Missing parameters" });
+    }
+
+    const info = getRunInfo(workspaceId);
+    res.json({ running: !!info, info: info ? { port: info.port } : null });
+  } catch (err) {
+    console.log("Error fetching run status", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.getRunLogs = async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    const since = Number(req.query.since || 0);
+    if (!workspaceId) {
+      return res.status(400).json({ message: "Missing parameters" });
+    }
+
+    const { lines, next } = getLogs(workspaceId, since);
+    res.json({ lines, next });
+  } catch (err) {
+    console.log("Error fetching run logs", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

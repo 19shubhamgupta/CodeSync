@@ -1,4 +1,6 @@
-const FileList = ({ files, status, selectedFileId, onSelectFile }) => {
+import { Play } from "lucide-react";
+
+const FileList = ({ files, status, selectedFileId, onSelectFile, onRun }) => {
   return (
     <section className="w-72 border-r border-slate-800 bg-slate-950/70 p-4">
       <div className="mb-3 text-xs uppercase tracking-[0.2em] text-slate-400">
@@ -24,7 +26,20 @@ const FileList = ({ files, status, selectedFileId, onSelectFile }) => {
             onClick={() => onSelectFile(file)}
           >
             <span className="truncate">{file.name}</span>
-            <span className="text-xs text-slate-500">
+            <span className="flex items-center gap-2 text-xs text-slate-500">
+              {file.isRunnable && (
+                <button
+                  type="button"
+                  className="rounded border border-emerald-400/30 p-1 text-emerald-300 hover:border-emerald-400"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRun?.(file);
+                  }}
+                  title="Run"
+                >
+                  <Play size={12} />
+                </button>
+              )}
               {file.language || "txt"}
             </span>
           </button>

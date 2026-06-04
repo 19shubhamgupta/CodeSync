@@ -1,4 +1,10 @@
-import { ChevronDown, ChevronRight, FileText, Folder } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Folder,
+  Play,
+} from "lucide-react";
 
 const FolderSidebar = ({
   nodesByParentId,
@@ -9,6 +15,7 @@ const FolderSidebar = ({
   selectedFileId,
   onToggleFolder,
   onSelectFile,
+  onRunNode,
 }) => {
   const renderNodes = (parentId, depth = 0) => {
     const children = nodesByParentId[parentId] || [];
@@ -37,7 +44,20 @@ const FolderSidebar = ({
                 <Folder size={16} className="text-blue-400" />
                 <span className="truncate text-slate-200">{node.name}</span>
               </span>
-              <span className="text-[10px] uppercase tracking-wide text-slate-500">
+              <span className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-slate-500">
+                {node.isRunnable && (
+                  <button
+                    type="button"
+                    className="rounded border border-emerald-400/30 p-1 text-emerald-300 hover:border-emerald-400"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRunNode?.(node);
+                    }}
+                    title="Run"
+                  >
+                    <Play size={12} />
+                  </button>
+                )}
                 folder
               </span>
             </button>
@@ -61,7 +81,20 @@ const FolderSidebar = ({
             <FileText size={16} className="text-emerald-300" />
             <span className="truncate">{node.name}</span>
           </span>
-          <span className="text-xs text-slate-500">
+          <span className="flex items-center gap-2 text-xs text-slate-500">
+            {node.isRunnable && (
+              <button
+                type="button"
+                className="rounded border border-emerald-400/30 p-1 text-emerald-300 hover:border-emerald-400"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRunNode?.(node);
+                }}
+                title="Run"
+              >
+                <Play size={12} />
+              </button>
+            )}
             {node.language || "txt"}
           </span>
         </button>

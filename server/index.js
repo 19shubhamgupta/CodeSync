@@ -9,8 +9,11 @@ const fileNodeRouter = require("./routes/fileNodeRouter");
 const workspaceRouter = require("./routes/workspaceRouter");
 
 const { app, server } = require("./lib/socket");
+const { setupProxyRoutes } = require("./utils/code-execution/previewService");
 
 dotenv.config();
+
+setupProxyRoutes(app);
 
 app.use(
   cors({
