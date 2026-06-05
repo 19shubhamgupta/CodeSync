@@ -23,6 +23,24 @@ const TEMPLATE_CATALOG = [
     description: "Next.js starter with pages directory.",
     icon: "next",
   },
+  {
+    id: "fastapi",
+    name: "FastAPI",
+    description: "FastAPI app with a single health endpoint.",
+    icon: "fastapi",
+  },
+  {
+    id: "flask",
+    name: "Flask",
+    description: "Flask app with a single health endpoint.",
+    icon: "flask",
+  },
+  {
+    id: "django",
+    name: "Django",
+    description: "Django starter with a single JSON endpoint.",
+    icon: "django",
+  },
 ];
 
 const languageForFile = (fileName) => {
@@ -44,6 +62,8 @@ const languageForFile = (fileName) => {
       return "css";
     case ".md":
       return "markdown";
+    case ".py":
+      return "python";
     default:
       return "plaintext";
   }
@@ -73,8 +93,8 @@ const copyTemplateToWorkspace = async ({
   const rootNode = await FileNode.create({
     name: templateRootName,
     type: "folder",
-    isRunnable : true,
-    runType : template.id,
+    isRunnable: true,
+    runType: template.id,
     workspaceId,
     parentId: null,
   });
@@ -103,7 +123,7 @@ const copyTemplateToWorkspace = async ({
         const fileNode = await FileNode.create({
           name: entry.name,
           type: "file",
-          language : languageForFile(entry.name),
+          language: languageForFile(entry.name),
           content,
           workspaceId,
           parentId,
