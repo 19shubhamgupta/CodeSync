@@ -55,6 +55,7 @@ const CodingSpacePage = () => {
   const [runStatus, setRunStatus] = useState("idle");
   const [runError, setRunError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [projectType, setProjectType] = useState(null);
   const logCursorRef = useRef(0);
 
   const apiBaseUrl = useMemo(
@@ -506,16 +507,22 @@ const CodingSpacePage = () => {
         const data = await response.json();
         setRunStatus("running");
         setPreviewUrl(data.previewUrl || null);
+        setProjectType(data.projectType || null);
 
-        const shouldOpenPreview = ["react-vite", "cra", "nextjs"].includes(
-          data.projectType,
-        );
+        const shouldOpenPreview = [
+          "react-vite",
+          "cra",
+          "nextjs",
+          "django",
+        ].includes(data.projectType);
         if (shouldOpenPreview && data.port) {
-          window.open(`http://localhost:${data.port}`, "_blank");
+          const previewPath = data.projectType === "django" ? "/admin" : "";
+          window.open(`http://localhost:${data.port}${previewPath}`, "_blank");
         }
       } catch (error) {
         setRunStatus("failed");
         setRunError(error.message || "Failed to run project");
+        setProjectType(null);
       }
     },
     [apiBaseUrl, getToken, saveCurrentFile, workspaceId],
@@ -599,7 +606,12 @@ const CodingSpacePage = () => {
                 )}
                 {previewUrl && runStatus === "running" && (
                   <div className="mt-2 text-slate-400">
-                    Preview: {`${apiBaseUrl}${previewUrl}`}
+                    Preview: {`${previewUrl}`}
+                  </div>
+                )}
+                {projectType === "django" && runStatus === "running" && (
+                  <div className="mt-2 text-slate-400">
+                    Visit /admin in the preview. Login: admin / admin
                   </div>
                 )}
               </div>
