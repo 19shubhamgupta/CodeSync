@@ -1,8 +1,9 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto")
 
-function writeTempDir(workspaceId, fileMap) {
-  const dir = path.join(__dirname, "../../temp", workspaceId);
+function writeTempDir(workspaceId, fileId, fileMap) {
+  const dir = path.join(__dirname, "../../temp",`${workspaceId}-${fileId}-${crypto.randomUUID()}` );
 
   // clean up previous run
   fs.rmSync(dir, { recursive: true, force: true });

@@ -235,14 +235,14 @@ exports.runProject = async (req, res) => {
     const projectInfo = detectProject(fileMap);
     console.log("Project info is : ", projectInfo);
     // 3. Write temp files
-    const tempDir = writeTempDir(workspaceId, fileMap);
+    const tempDir = writeTempDir(workspaceId, fileId, fileMap);
 
     // 4. Build + run in Docker
     const { hostPort } = await runWorkspace(workspaceId, tempDir, projectInfo);
     console.log("Project running successfully  on port : ", hostPort);
     res.json({
       success: true,
-      previewUrl: `/preview/${workspaceId}`,
+      previewUrl: `http://localhost:${hostPort}`,
       port: hostPort,
       projectType: projectInfo.type,
     });

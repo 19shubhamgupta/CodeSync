@@ -3,6 +3,7 @@ const { spawnSync, spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const net = require("net");
+const crypto = require("crypto")
 const { generateDockerfile } = require("./dockerFileGenerator");
 
 const runningContainers = {}; // workspaceId -> { containerId, port, proc, logs }
@@ -83,7 +84,7 @@ async function runWorkspace(workspaceId, tempDir, projectInfo) {
   console.log("Dockerfile written for project type:", type);
 
   // image name must be lowercase, no special chars
-  const imageName = `codesync-${workspaceId.toString().toLowerCase()}`;
+  const imageName = `codesync-${workspaceId.toString().toLowerCase()}-${crypto.randomUUID()}`;
 
   // ── Build image ──
   // use spawnSync with array args so spaces in tempDir path don't break anything

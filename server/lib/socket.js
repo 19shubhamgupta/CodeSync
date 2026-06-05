@@ -44,7 +44,7 @@ io.on("connection", async (socket) => {
 
   socket.on(
     "file:edit",
-    ({ workspaceId, fileId, operation, userId, timestamp, baseRevision }) => {
+    async ({ workspaceId, fileId, operation, userId, timestamp, baseRevision }) => {
       if (!workspaceId || !fileId) {
         return;
       }
@@ -53,23 +53,33 @@ io.on("connection", async (socket) => {
         return;
       }
 
-      // Initialize file state if doesn't exist
+      // Initialize file state if doesn't exist — load from DB if available
       if (!fileStates[fileId]) {
-        fileStates[fileId] = {
-          content: "",
-          pendingOps: [],
-          revision: 0,
-        };
+        try {
+          const FileNode = require("../models/fileNode");
+          const doc = await FileNode.findById(fileId).select("content");
+          fileStates[fileId] = {
+            content: doc?.content || "",
+            pendingOps: [],
+            revision: 0,
+          };
+        } catch {
+          fileStates[fileId] = {
+            content: "",
+            pendingOps: [],
+            revision: 0,
+          };
+        }
       }
 
       const fileState = fileStates[fileId];
       const clientRevision =
         typeof baseRevision === "number" ? baseRevision : fileState.revision;
 
-      // Transform incoming operation against all pending operations
+      // Transform incoming operation against pending ops that the client hasn't seen yet
       let transformedOp = { ...operation };
       fileState.pendingOps.forEach((pendingEntry) => {
-        if (pendingEntry.revision >= clientRevision) {
+        if (pendingEntry.revision > clientRevision) {
           transformedOp = transform(pendingEntry.op, transformedOp);
         }
       });
@@ -109,15 +119,25 @@ io.on("connection", async (socket) => {
     },
   );
 
-  socket.on("file:open", ({ fileId, initialContent }) => {
+  socket.on("file:open", async ({ fileId, initialContent }) => {
     if (!fileId) return;
 
     if (!fileStates[fileId]) {
-      fileStates[fileId] = {
-        content: initialContent || "",
-        pendingOps: [],
-        revision: 0,
-      };
+      try {
+        const FileNode = require("../models/fileNode");
+        const doc = await FileNode.findById(fileId).select("content");
+        fileStates[fileId] = {
+          content: doc?.content || initialContent || "",
+          pendingOps: [],
+          revision: 0,
+        };
+      } catch {
+        fileStates[fileId] = {
+          content: initialContent || "",
+          pendingOps: [],
+          revision: 0,
+        };
+      }
     }
 
     // Send current state to this user
@@ -154,7 +174,7 @@ setInterval(async () => {
         },
         { new: true },
       );
-      console.log(`Auto-saved file ${fileId}`);
+      console.log(`Auto-saved file ${fileId} (${state.content.length} chars, rev ${state.revision})`);
     } catch (error) {
       console.error(`Error auto-saving file ${fileId}:`, error);
     }

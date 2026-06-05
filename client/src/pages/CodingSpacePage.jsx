@@ -510,8 +510,8 @@ const CodingSpacePage = () => {
         const shouldOpenPreview = ["react-vite", "cra", "nextjs"].includes(
           data.projectType,
         );
-        if (shouldOpenPreview && data.previewUrl) {
-          window.open(`${apiBaseUrl}${data.previewUrl}`, "_blank");
+        if (shouldOpenPreview && data.port) {
+          window.open(`http://localhost:${data.port}`, "_blank");
         }
       } catch (error) {
         setRunStatus("failed");
