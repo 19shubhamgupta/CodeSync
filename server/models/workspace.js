@@ -13,13 +13,16 @@ const workspaceSchema = new mongoose.Schema({
       joinedAt: { type: Date, default: Date.now },
     },
   ],
-  //   githubRepo: {
-  //     owner: String,
-  //     name: String,
-  //     url: String,
-  //     branch: { type: String, default: "main" },
-  //     lastSyncedAt: Date
-  //   },
+  githubIntegration: {
+    isConnected: { type: Boolean, default: false },
+    repoOwner: String,
+    repoName: String,
+    repoUrl: String,
+    accessToken: String, // Encrypted
+    branch: { type: String, default: "main" },
+    linkedAt: Date,
+    lastSyncedAt: Date,
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
