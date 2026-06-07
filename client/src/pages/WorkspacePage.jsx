@@ -40,21 +40,18 @@ const WorkspacePage = () => {
   }, [dispatch, getToken, isSignedIn]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-screen bg-[#181818] text-[#cccccc]">
       <div className="mx-auto w-full max-w-6xl px-6 py-12">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-semibold text-slate-50 font-[Space_Grotesk]">
+            <h1 className="text-3xl font-semibold text-white">
               Your Workspaces
             </h1>
-            <p className="text-sm text-slate-400">
-              All your collaborative sessions in one place.
-            </p>
           </div>
         </div>
 
         {status === "loading" && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-slate-300">
+          <div className="rounded-2xl border border-[#3c3c3c] bg-[#252526] p-6 text-[#cccccc]">
             Loading workspaces...
           </div>
         )}
@@ -66,7 +63,7 @@ const WorkspacePage = () => {
         )}
 
         {status !== "loading" && items.length === 0 && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-slate-300">
+          <div className="rounded-2xl border border-[#3c3c3c] bg-[#252526] p-6 text-[#cccccc]">
             No workspaces yet. Create one to get started.
           </div>
         )}
@@ -76,20 +73,20 @@ const WorkspacePage = () => {
             <Link
               key={workspace._id}
               to={`/workspace/${workspace._id}`}
-              className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 transition hover:border-cyan-500/40"
+              className="rounded-lg border border-white bg-[#252526] p-6 transition hover:border-[#007acc]"
             >
-              <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">
+              <div className="text-xs uppercase tracking-[0.2em] text-[#007acc]">
                 Workspace
               </div>
-              <h2 className="mt-2 text-xl font-semibold text-slate-50">
+              <h2 className="mt-2 text-2xl font-bold text-white">
                 {workspace.name}
               </h2>
-              <p className="mt-2 text-sm text-slate-300">
+              <p className="mt-2 text-sm text-[#cccccc]">
                 {workspace.description || "No description provided."}
               </p>
-              <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+              <div className="mt-4 flex items-center justify-between text-xl font-bold text-[#969696]">
                 <span>Role</span>
-                <span className="text-cyan-300">
+                <span className="text-[#007acc] text-xl font-semibold ">
                   {workspace.role || "Member"}
                 </span>
               </div>

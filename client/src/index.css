@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: "Segoe WPC", "Segoe UI", "HelveticaNeue-Light", sans-serif;
+    background-color: #1e1e1e;
+    color: #cccccc;
+  }
+}
+
+.font-vscode-mono {
+  font-family: "Consolas", "Courier New", monospace;
+}

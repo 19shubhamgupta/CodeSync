@@ -15,54 +15,54 @@ const TemplateImportModal = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4">
-      <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-slate-900 p-6 text-slate-100 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-xl border border-[#3c3c3c] bg-[#1e1e1e] p-6 text-[#cccccc] shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[#3c3c3c] pb-4">
           <div>
-            <h2 className="text-lg font-semibold">Import Template</h2>
-            <p className="text-xs text-slate-400">
+            <h2 className="text-xl font-semibold text-white">Import Template</h2>
+            <p className="text-xs text-[#969696] mt-1">
               Choose a template and name the root folder.
             </p>
           </div>
           <button
-            className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:border-slate-500"
+            className="rounded-lg p-2 text-[#858585] hover:bg-[#252526] hover:text-white transition-colors"
             onClick={onClose}
           >
-            Close
+            ✕
           </button>
         </div>
 
         {loading && (
-          <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
+          <div className="mt-6 rounded-lg border border-[#3c3c3c] bg-[#252526] p-4 text-sm text-[#cccccc]">
             Loading templates...
           </div>
         )}
 
         {error && (
-          <div className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-200">
+          <div className="mt-6 rounded-lg border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-300">
             {error}
           </div>
         )}
 
         {!loading && templates.length > 0 && (
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="mt-6 grid gap-4 md:grid-cols-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
             {templates.map((template) => (
               <button
                 key={template.id}
-                className={`rounded-xl border px-4 py-4 text-left transition ${
+                className={`rounded-lg border p-4 text-left transition-all ${
                   selectedTemplateId === template.id
-                    ? "border-cyan-400 bg-slate-800/60"
-                    : "border-slate-800 bg-slate-950/60 hover:border-slate-600"
+                    ? "border-[#007acc] bg-[#007acc]/10"
+                    : "border-[#3c3c3c] bg-[#252526] hover:border-[#858585] hover:bg-[#2d2d2d]"
                 }`}
                 onClick={() => onSelectTemplate(template.id)}
               >
-                <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">
+                <div className="text-xs font-bold uppercase tracking-wider text-[#007acc]">
                   {template.icon || "template"}
                 </div>
-                <div className="mt-2 text-base font-semibold">
+                <div className="mt-2 text-base font-semibold text-white">
                   {template.name}
                 </div>
-                <p className="mt-1 text-sm text-slate-400">
+                <p className="mt-1 text-sm text-[#969696] line-clamp-2">
                   {template.description}
                 </p>
               </button>
@@ -71,26 +71,26 @@ const TemplateImportModal = ({
         )}
 
         <div className="mt-6 space-y-2">
-          <label className="text-xs uppercase tracking-[0.2em] text-slate-400">
+          <label className="text-xs font-semibold uppercase tracking-wider text-[#969696]">
             Root Folder Name
           </label>
           <input
-            className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-slate-100 focus:border-cyan-400 focus:outline-none"
+            className="w-full rounded-lg border border-[#3c3c3c] bg-[#252526] px-4 py-2.5 text-sm text-[#cccccc] focus:border-[#007acc] focus:outline-none focus:ring-1 focus:ring-[#007acc] transition-shadow"
             placeholder="e.g. api-server"
             value={rootName}
             onChange={(event) => onRootNameChange(event.target.value)}
           />
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-8 flex justify-end gap-3">
           <button
-            className="rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-300 hover:border-slate-500"
+            className="rounded-lg border border-[#3c3c3c] px-5 py-2 text-sm font-medium text-[#cccccc] hover:bg-[#2a2d2e] transition-colors"
             onClick={onClose}
           >
             Cancel
           </button>
           <button
-            className="rounded-full bg-cyan-500 px-5 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400"
+            className="rounded-lg bg-[#0e639c] px-5 py-2 text-sm font-medium text-white hover:bg-[#1177bb] disabled:opacity-50 transition-colors"
             onClick={onImport}
             disabled={!selectedTemplateId}
           >

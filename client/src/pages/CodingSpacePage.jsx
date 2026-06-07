@@ -6,6 +6,7 @@ import FolderSidebar from "../components/CodingSpace/FolderSidebar";
 import EditorPane from "../components/CodingSpace/EditorPane";
 import TemplateImportModal from "../components/TemplateImportModal";
 import GitHubPanel from "../components/CodingSpace/GitHubPanel";
+import ActivityBar from "../components/CodingSpace/ActivityBar";
 import {
   clearTree,
   fetchNodes,
@@ -48,6 +49,7 @@ const CodingSpacePage = () => {
   const suppressEmitRef = useRef(false);
   const typingTimerRef = useRef(null);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isGithubModalOpen, setGithubModalOpen] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [templateLoading, setTemplateLoading] = useState(false);
   const [templateError, setTemplateError] = useState(null);
@@ -62,6 +64,11 @@ const CodingSpacePage = () => {
   // GitHub terminal tab
   const [terminalTab, setTerminalTab] = useState("logs"); // "logs" | "git"
   const [githubLogs, setGithubLogs] = useState([]);
+  
+  const [activePane, setActivePane] = useState("explorer");
+  const workspaces = useSelector((state) => state.workspaces?.items || []);
+  const currentWorkspace = workspaces.find((w) => w._id === workspaceId);
+  const workspaceName = currentWorkspace?.name || "Workspace";
 
   const apiBaseUrl = useMemo(
     () => import.meta.env.VITE_API_BASE_URL || "http://localhost:5000",
@@ -553,29 +560,17 @@ const CodingSpacePage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-screen bg-[#1e1e1e] text-[#cccccc] font-sans">
       <div className="flex min-h-screen flex-col">
-        <header className="flex items-center justify-between border-b border-slate-800 bg-slate-950/80 px-6 py-3">
-          <div>
-            <h1 className="text-base font-semibold text-slate-100">Workspace</h1>
-            <p className="text-xs text-slate-500">Import a template to add multiple stacks.</p>
+        <header className="flex h-9 items-center justify-between bg-[#1f1e1e] px-4 text-[13px] text-[#cccccc]">
+          <div className="flex items-center gap-4">
+            <span className="font-semibold text-white">{workspaceName}</span>
           </div>
-          {/* Header actions */}
-          <div className="flex items-center gap-2">
-            <GitHubPanel
-              workspaceId={workspaceId}
-              onAddLog={addGithubLog}
-              onClearLogs={clearGithubLogs}
-              onRefreshTree={handleRefreshTree}
-            />
-            <button
-              className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-4 py-2 text-xs font-semibold text-cyan-200 hover:border-cyan-400"
-              onClick={handleOpenTemplateModal}
-            >
-              Import Template
-            </button>
+          <div className="flex items-center gap-4">
+            {/* Header empty in typical VS Code layout, navigation moved to sidebar */}
           </div>
         </header>
+        
         <TemplateImportModal
           isOpen={isTemplateModalOpen}
           templates={templates}
@@ -588,57 +583,85 @@ const CodingSpacePage = () => {
           onClose={handleCloseTemplateModal}
           onImport={handleImportTemplate}
         />
-        <div className="flex min-h-screen">
-          <FolderSidebar
-            nodesByParentId={nodesByParentId}
-            nodeById={nodeById}
-            statusByParentId={statusByParentId}
-            errorByParentId={errorByParentId}
-            expandedFolderIds={expandedFolderIds}
-            selectedFileId={selectedFileId}
-            onToggleFolder={handleFolderToggle}
-            onSelectFile={handleFileSelect}
-            onRunNode={handleRunNode}
+        
+        <div className="flex flex-1 overflow-hidden">
+          <ActivityBar
+            activePane={activePane}
+            onSelectPane={(pane) => {
+              if (pane === "templates") {
+                handleOpenTemplateModal();
+              } else if (pane === "github") {
+                setGithubModalOpen(true);
+              } else {
+                setActivePane(pane);
+              }
+            }}
           />
-          <div className="flex flex-1 flex-col">
+          
+          <div className="w-64 flex-shrink-0 border-r border-[#3c3c3c] bg-[#252526] overflow-y-auto">
+            {activePane === "explorer" && (
+              <FolderSidebar
+                nodesByParentId={nodesByParentId}
+                nodeById={nodeById}
+                statusByParentId={statusByParentId}
+                errorByParentId={errorByParentId}
+                expandedFolderIds={expandedFolderIds}
+                selectedFileId={selectedFileId}
+                onToggleFolder={handleFolderToggle}
+                onSelectFile={handleFileSelect}
+                onRunNode={handleRunNode}
+              />
+            )}
+          </div>
+
+          <GitHubPanel
+            isOpen={isGithubModalOpen}
+            onClose={() => setGithubModalOpen(false)}
+            workspaceId={workspaceId}
+            onAddLog={addGithubLog}
+            onClearLogs={clearGithubLogs}
+            onRefreshTree={handleRefreshTree}
+          />
+
+          <div className="flex flex-1 flex-col overflow-hidden">
             <EditorPane
               file={selectedFile}
               onChange={handleEditorChange}
               onSave={handleEditorSave}
             />
-            <section className="border-t border-slate-800 bg-slate-950/90">
+            <section className="border-t border-[#3c3c3c] bg-[#181818]">
               {/* Terminal tab bar */}
-              <div className="flex items-center justify-between border-b border-slate-800/60 px-4">
+              <div className="flex items-center justify-between px-4 bg-[#1f1e1e]">
                 <div className="flex">
                   {[
-                    { key: "logs", label: "Logs" },
-                    { key: "git",  label: "Git" },
+                    { key: "logs", label: "TERMINAL" },
+                    { key: "git",  label: "OUTPUT" },
                   ].map(({ key, label }) => (
                     <button
                       key={key}
                       onClick={() => setTerminalTab(key)}
-                      className={`px-4 py-2 text-xs font-medium transition border-b-2 ${
+                      className={`px-4 py-1.5 text-[11px] uppercase tracking-wider transition border-b border-transparent ${
                         terminalTab === key
-                          ? "border-cyan-500 text-cyan-300"
-                          : "border-transparent text-slate-500 hover:text-slate-300"
+                          ? "border-b-[#007acc] text-[#cccccc]"
+                          : "text-[#858585] hover:text-[#cccccc]"
                       }`}
                     >
                       {label}
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-500">
+                <div className="flex items-center gap-3 text-xs text-[#858585]">
                   {terminalTab === "logs" && (
                     <>
-                      {runStatus === "running"  && <span className="text-emerald-400">● Running</span>}
-                      {runStatus === "starting" && <span className="text-cyan-400">◌ Starting</span>}
-                      {runStatus === "failed"   && <span className="text-rose-400">✕ Failed</span>}
+                      {runStatus === "running"  && <span className="text-[#4ec9b0]">● Running</span>}
+                      {runStatus === "starting" && <span className="text-[#569cd6]">◌ Starting</span>}
+                      {runStatus === "failed"   && <span className="text-[#f14c4c]">✕ Failed</span>}
                     </>
                   )}
                   {terminalTab === "git" && githubLogs.length > 0 && (
                     <button
                       onClick={clearGithubLogs}
-                      className="text-[10px] text-slate-600 hover:text-slate-400"
+                      className="text-[10px] hover:text-[#cccccc]"
                     >
                       Clear
                     </button>
@@ -647,26 +670,26 @@ const CodingSpacePage = () => {
               </div>
 
               {/* Terminal body */}
-              <div className="h-40 overflow-auto px-4 pb-3 pt-2 font-mono text-xs text-slate-200">
+              <div className="h-40 overflow-auto px-4 pb-3 pt-2 font-vscode-mono text-[13px] text-[#cccccc]">
                 {/* Run Logs tab */}
                 {terminalTab === "logs" && (
                   <>
                     {runError && (
-                      <div className="mb-2 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-rose-200">
+                      <div className="mb-2 text-[#f14c4c]">
                         {runError}
                       </div>
                     )}
                     {runLogs.length === 0 && !runError && (
-                      <div className="text-slate-600">No run logs yet.</div>
+                      <div className="text-[#858585]">No run logs yet.</div>
                     )}
                     {runLogs.length > 0 && (
                       <pre className="whitespace-pre-wrap">{runLogs.join("\n")}</pre>
                     )}
                     {previewUrl && runStatus === "running" && (
-                      <div className="mt-2 text-slate-400">Preview: {previewUrl}</div>
+                      <div className="mt-2 text-[#569cd6]">Preview: {previewUrl}</div>
                     )}
                     {projectType === "django" && runStatus === "running" && (
-                      <div className="mt-2 text-slate-400">
+                      <div className="mt-2 text-[#569cd6]">
                         Visit /admin in the preview. Login: admin / admin
                       </div>
                     )}
@@ -677,7 +700,7 @@ const CodingSpacePage = () => {
                 {terminalTab === "git" && (
                   <>
                     {githubLogs.length === 0 ? (
-                      <div className="text-slate-600">No git activity yet. Use the GitHub panel above to push or pull.</div>
+                      <div className="text-[#858585]">No git activity yet. Use the Source Control panel to push or pull.</div>
                     ) : (
                       <pre className="whitespace-pre-wrap">{githubLogs.join("\n")}</pre>
                     )}

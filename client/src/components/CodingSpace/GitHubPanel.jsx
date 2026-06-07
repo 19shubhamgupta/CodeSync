@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import {
   Github,
-  ChevronDown,
   GitBranch,
   Upload,
   Download,
@@ -15,7 +14,6 @@ import {
   Loader2,
   X,
   AlertCircle,
-  Plus,
   ExternalLink,
   Unlink,
   RefreshCw,
@@ -35,8 +33,6 @@ import {
   switchBranch,
   fetchCommits,
   disconnectRepository,
-  clearGitHubError,
-  clearGitHubMessage,
 } from "../../store/githubSlice";
 
 // ─── Shared Modal Shell ──────────────────────────────────────────────────────
@@ -44,7 +40,9 @@ import {
 function Modal({ title, onClose, children, width = "max-w-lg" }) {
   // Close on Escape key
   useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
@@ -53,22 +51,23 @@ function Modal({ title, onClose, children, width = "max-w-lg" }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
       {/* Panel */}
       <div
-        className={`relative w-full ${width} rounded-xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/60`}
+        className={`relative w-full ${width} rounded-xl border border-[#30363d] bg-[#0d1117] shadow-2xl shadow-black/60`}
+        style={{ fontFamily: "'-apple-system', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[#30363d] px-5 py-4 bg-[#0d1117] rounded-t-xl">
           <div className="flex items-center gap-2">
-            <Github size={16} className="text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-100">{title}</h2>
+            <Github size={16} className="text-[#8b949e]" />
+            <h2 className="text-sm font-semibold text-[#c9d1d9]">{title}</h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-md p-1 text-slate-500 transition hover:bg-slate-800 hover:text-slate-300"
+            className="rounded-md p-1 text-[#8b949e] transition hover:bg-[#21262d] hover:text-[#c9d1d9]"
           >
             <X size={14} />
           </button>
@@ -85,18 +84,27 @@ function Modal({ title, onClose, children, width = "max-w-lg" }) {
 function StatusBanner({ type, message, onDismiss }) {
   if (!message) return null;
   const styles = {
-    success: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
-    error:   "border-rose-500/40 bg-rose-500/10 text-rose-300",
-    info:    "border-cyan-500/40 bg-cyan-500/10 text-cyan-300",
+    success: "border-[#2ea043] bg-[#238636]/10 text-[#3fb950]",
+    error: "border-[#f85149] bg-[#da3633]/10 text-[#ff7b72]",
+    info: "border-[#388bfd] bg-[#1f6feb]/10 text-[#79c0ff]",
   };
   return (
-    <div className={`mb-4 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${styles[type]}`}>
-      {type === "success" && <CheckCircle2 size={13} className="mt-0.5 shrink-0" />}
-      {type === "error"   && <AlertCircle  size={13} className="mt-0.5 shrink-0" />}
-      {type === "info"    && <AlertCircle  size={13} className="mt-0.5 shrink-0" />}
+    <div
+      className={`mb-4 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${styles[type]}`}
+    >
+      {type === "success" && (
+        <CheckCircle2 size={13} className="mt-0.5 shrink-0" />
+      )}
+      {type === "error" && (
+        <AlertCircle size={13} className="mt-0.5 shrink-0" />
+      )}
+      {type === "info" && <AlertCircle size={13} className="mt-0.5 shrink-0" />}
       <span className="flex-1">{message}</span>
       {onDismiss && (
-        <button onClick={onDismiss} className="shrink-0 opacity-60 hover:opacity-100">
+        <button
+          onClick={onDismiss}
+          className="shrink-0 opacity-60 hover:opacity-100"
+        >
           <X size={11} />
         </button>
       )}
@@ -106,13 +114,25 @@ function StatusBanner({ type, message, onDismiss }) {
 
 // ─── Primary button ───────────────────────────────────────────────────────────
 
-function Btn({ onClick, disabled, loading, children, variant = "primary", className = "" }) {
-  const base = "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition disabled:opacity-50";
+function Btn({
+  onClick,
+  disabled,
+  loading,
+  children,
+  variant = "primary",
+  className = "",
+}) {
+  const base =
+    "inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition disabled:opacity-50";
   const variants = {
-    primary:   "bg-cyan-500/20 border border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/30",
-    success:   "bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/30",
-    danger:    "bg-rose-500/20 border border-rose-500/40 text-rose-300 hover:bg-rose-500/30",
-    ghost:     "border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200",
+    primary:
+      "bg-[#238636] border border-[#2ea043] text-white hover:bg-[#2ea043]",
+    success:
+      "bg-[#238636] border border-[#2ea043] text-white hover:bg-[#2ea043]",
+    danger:
+      "bg-[#da3633] border border-[#f85149] text-white hover:bg-[#b62324]",
+    ghost:
+      "bg-[#21262d] border border-[#363b42] text-[#c9d1d9] hover:bg-[#30363d] hover:border-[#8b949e]",
   };
   return (
     <button
@@ -131,13 +151,13 @@ function Btn({ onClick, disabled, loading, children, variant = "primary", classN
 function Input({ label, value, onChange, placeholder, type = "text" }) {
   return (
     <div className="space-y-1">
-      {label && <label className="text-xs text-slate-400">{label}</label>}
+      {label && <label className="text-xs font-semibold text-[#8b949e]">{label}</label>}
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 outline-none transition focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/20"
+        className="w-full rounded-md border border-[#30363d] bg-[#0d1117] px-3 py-2 text-xs text-[#c9d1d9] placeholder-[#484f58] outline-none transition focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff]"
       />
     </div>
   );
@@ -148,13 +168,13 @@ function Input({ label, value, onChange, placeholder, type = "text" }) {
 function Textarea({ label, value, onChange, placeholder, rows = 3 }) {
   return (
     <div className="space-y-1">
-      {label && <label className="text-xs text-slate-400">{label}</label>}
+      {label && <label className="text-xs font-semibold text-[#8b949e]">{label}</label>}
       <textarea
         rows={rows}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 outline-none transition focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/20"
+        className="w-full rounded-md border border-[#30363d] bg-[#0d1117] px-3 py-2 text-xs text-[#c9d1d9] placeholder-[#484f58] outline-none transition focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff]"
       />
     </div>
   );
@@ -187,17 +207,23 @@ function ConnectModal({ onClose }) {
   return (
     <Modal title="Connect GitHub Account" onClose={onClose}>
       <div className="space-y-5">
-        <div className="rounded-lg border border-slate-700/60 bg-slate-800/50 p-4">
-          <p className="mb-1 text-xs font-medium text-slate-300">
+        <div className="rounded-lg border border-[#30363d]/60 bg-[#0d1117]/50 p-4">
+          <p className="mb-1 text-xs font-medium text-[#c9d1d9]">
             Link your GitHub account to CodeSync
           </p>
-          <p className="text-xs text-slate-500">
-            You&apos;ll be redirected to GitHub to authorize access. Once connected
-            you can push &amp; pull your workspace code directly.
+          <p className="text-xs text-[#8b949e]">
+            You&apos;ll be redirected to GitHub to authorize access. Once
+            connected you can push &amp; pull your workspace code directly.
           </p>
         </div>
 
-        {error && <StatusBanner type="error" message={error} onDismiss={() => setError(null)} />}
+        {error && (
+          <StatusBanner
+            type="error"
+            message={error}
+            onDismiss={() => setError(null)}
+          />
+        )}
 
         <div className="flex items-center gap-3">
           <Btn
@@ -214,7 +240,7 @@ function ConnectModal({ onClose }) {
           </Btn>
         </div>
 
-        <p className="text-center text-[10px] text-slate-600">
+        <p className="text-center text-[10px] text-[#484f58]">
           This uses your Clerk account to securely store the GitHub OAuth token.
         </p>
       </div>
@@ -244,10 +270,6 @@ function LinkRepoModal({ workspaceId, onClose, onLinked }) {
     })();
   }, [dispatch, getToken]);
 
-  useEffect(() => {
-    if (error) setLocalError(error);
-  }, [error]);
-
   const handleLink = async () => {
     setLocalError(null);
     const token = await getToken();
@@ -257,25 +279,44 @@ function LinkRepoModal({ workspaceId, onClose, onLinked }) {
       let owner, name;
 
       if (tab === "existing") {
-        if (!selectedRepo) { setLocalError("Please select a repository."); return; }
+        if (!selectedRepo) {
+          setLocalError("Please select a repository.");
+          return;
+        }
         owner = selectedRepo.owner;
         name = selectedRepo.name;
       } else {
-        if (!newRepoName.trim()) { setLocalError("Please enter a repository name."); return; }
+        if (!newRepoName.trim()) {
+          setLocalError("Please enter a repository name.");
+          return;
+        }
         // Create the repo first
         const createResult = await dispatch(
-          createGitHubRepo({ repoName: newRepoName.trim(), description: newRepoDesc, token })
+          createGitHubRepo({
+            repoName: newRepoName.trim(),
+            description: newRepoDesc,
+            token,
+          }),
         ).unwrap();
         owner = createResult.repo.owner;
         name = createResult.repo.name;
       }
 
       await dispatch(
-        linkRepository({ workspaceId, repoOwner: owner, repoName: name, branch, token })
+        linkRepository({
+          workspaceId,
+          repoOwner: owner,
+          repoName: name,
+          branch,
+          token,
+        }),
       ).unwrap();
 
       setSuccess(`✅ Linked to ${owner}/${name}`);
-      setTimeout(() => { onLinked?.(); onClose(); }, 1500);
+      setTimeout(() => {
+        onLinked?.();
+        onClose();
+      }, 1500);
     } catch (err) {
       setLocalError(err.message || String(err));
     }
@@ -285,15 +326,21 @@ function LinkRepoModal({ workspaceId, onClose, onLinked }) {
     <Modal title="Link Repository" onClose={onClose} width="max-w-xl">
       <div className="space-y-4">
         {/* Tab selector */}
-        <div className="flex gap-1 rounded-lg border border-slate-700 bg-slate-800/50 p-1">
-          {[["existing", "Select existing"], ["new", "Create new"]].map(([key, label]) => (
+        <div className="flex gap-1 rounded-lg border border-[#30363d] bg-[#0d1117]/50 p-1">
+          {[
+            ["existing", "Select existing"],
+            ["new", "Create new"],
+          ].map(([key, label]) => (
             <button
               key={key}
-              onClick={() => { setTab(key); setLocalError(null); }}
+              onClick={() => {
+                setTab(key);
+                setLocalError(null);
+              }}
               className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
                 tab === key
-                  ? "bg-slate-700 text-slate-100"
-                  : "text-slate-500 hover:text-slate-300"
+                  ? "bg-[#30363d] text-slate-100"
+                  : "text-[#8b949e] hover:text-[#c9d1d9]"
               }`}
             >
               {label}
@@ -304,14 +351,15 @@ function LinkRepoModal({ workspaceId, onClose, onLinked }) {
         {/* Existing repos list */}
         {tab === "existing" && (
           <div className="space-y-2">
-            <label className="text-xs text-slate-400">Select repository:</label>
-            <div className="max-h-52 overflow-y-auto rounded-lg border border-slate-700 bg-slate-800/40">
+            <label className="text-xs text-[#8b949e]">Select repository:</label>
+            <div className="max-h-52 overflow-y-auto rounded-lg border border-[#30363d] bg-[#0d1117]/40">
               {reposLoading ? (
-                <div className="flex items-center justify-center gap-2 py-8 text-xs text-slate-500">
-                  <Loader2 size={13} className="animate-spin" /> Loading repositories…
+                <div className="flex items-center justify-center gap-2 py-8 text-xs text-[#8b949e]">
+                  <Loader2 size={13} className="animate-spin" /> Loading
+                  repositories…
                 </div>
               ) : repos.length === 0 ? (
-                <div className="py-8 text-center text-xs text-slate-500">
+                <div className="py-8 text-center text-xs text-[#8b949e]">
                   No repositories found
                 </div>
               ) : (
@@ -319,21 +367,33 @@ function LinkRepoModal({ workspaceId, onClose, onLinked }) {
                   <button
                     key={repo.id}
                     onClick={() => setSelectedRepo(repo)}
-                    className={`flex w-full items-center gap-3 border-b border-slate-700/50 px-3 py-2.5 text-left transition last:border-0 hover:bg-slate-700/40 ${
+                    className={`flex w-full items-center gap-3 border-b border-[#30363d]/50 px-3 py-2.5 text-left transition last:border-0 hover:bg-[#30363d]/40 ${
                       selectedRepo?.id === repo.id ? "bg-cyan-500/10" : ""
                     }`}
                   >
-                    <FolderGit2 size={14} className={selectedRepo?.id === repo.id ? "text-cyan-400" : "text-slate-500"} />
+                    <FolderGit2
+                      size={14}
+                      className={
+                        selectedRepo?.id === repo.id
+                          ? "text-[#58a6ff]"
+                          : "text-[#8b949e]"
+                      }
+                    />
                     <div className="flex-1 overflow-hidden">
-                      <p className="truncate text-xs font-medium text-slate-200">
+                      <p className="truncate text-xs font-medium text-[#c9d1d9]">
                         {repo.owner}/{repo.name}
                       </p>
                       {repo.description && (
-                        <p className="truncate text-[10px] text-slate-500">{repo.description}</p>
+                        <p className="truncate text-[10px] text-[#8b949e]">
+                          {repo.description}
+                        </p>
                       )}
                     </div>
                     {selectedRepo?.id === repo.id && (
-                      <CheckCircle2 size={13} className="shrink-0 text-cyan-400" />
+                      <CheckCircle2
+                        size={13}
+                        className="shrink-0 text-[#58a6ff]"
+                      />
                     )}
                   </button>
                 ))
@@ -368,8 +428,12 @@ function LinkRepoModal({ workspaceId, onClose, onLinked }) {
           placeholder="main"
         />
 
-        {localError && (
-          <StatusBanner type="error" message={localError} onDismiss={() => setLocalError(null)} />
+        {(localError || error) && (
+          <StatusBanner
+            type="error"
+            message={localError || error}
+            onDismiss={() => setLocalError(null)}
+          />
         )}
         {success && <StatusBanner type="success" message={success} />}
 
@@ -383,7 +447,9 @@ function LinkRepoModal({ workspaceId, onClose, onLinked }) {
             <Link2 size={13} />
             {tab === "new" ? "Create & Link Repository" : "Link Repository"}
           </Btn>
-          <Btn onClick={onClose} variant="ghost">Cancel</Btn>
+          <Btn onClick={onClose} variant="ghost">
+            Cancel
+          </Btn>
         </div>
       </div>
     </Modal>
@@ -410,7 +476,7 @@ function PushModal({ workspaceId, repo, branch, onClose, onAddLog }) {
 
     try {
       const result = await dispatch(
-        pushToGitHub({ workspaceId, commitMessage, token })
+        pushToGitHub({ workspaceId, commitMessage, token }),
       ).unwrap();
 
       onAddLog?.(`📝 Commit: "${commitMessage}"`);
@@ -426,11 +492,13 @@ function PushModal({ workspaceId, repo, branch, onClose, onAddLog }) {
   return (
     <Modal title="Push to GitHub" onClose={onClose}>
       <div className="space-y-4">
-        <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 px-4 py-3">
-          <p className="text-[10px] uppercase tracking-widest text-slate-500">Pushing to</p>
+        <div className="rounded-lg border border-[#30363d]/60 bg-[#0d1117]/40 px-4 py-3">
+          <p className="text-[10px] uppercase tracking-widest text-[#8b949e]">
+            Pushing to
+          </p>
           <p className="mt-0.5 text-sm font-semibold text-slate-100">
             {repo.owner}/{repo.name}
-            <span className="ml-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-normal text-cyan-400">
+            <span className="ml-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-normal text-[#58a6ff]">
               {branch}
             </span>
           </p>
@@ -444,7 +512,13 @@ function PushModal({ workspaceId, repo, branch, onClose, onAddLog }) {
           rows={3}
         />
 
-        {error   && <StatusBanner type="error"   message={error}   onDismiss={() => setError(null)} />}
+        {error && (
+          <StatusBanner
+            type="error"
+            message={error}
+            onDismiss={() => setError(null)}
+          />
+        )}
         {success && <StatusBanner type="success" message={success} />}
 
         <div className="flex items-center gap-3 pt-1">
@@ -458,7 +532,9 @@ function PushModal({ workspaceId, repo, branch, onClose, onAddLog }) {
             <Upload size={13} />
             {loading ? "Pushing…" : "Push"}
           </Btn>
-          <Btn onClick={onClose} variant="ghost">Cancel</Btn>
+          <Btn onClick={onClose} variant="ghost">
+            Cancel
+          </Btn>
         </div>
       </div>
     </Modal>
@@ -467,7 +543,14 @@ function PushModal({ workspaceId, repo, branch, onClose, onAddLog }) {
 
 // ─── Modal: Pull ──────────────────────────────────────────────────────────────
 
-function PullModal({ workspaceId, repo, branch, onClose, onAddLog, onRefreshTree }) {
+function PullModal({
+  workspaceId,
+  repo,
+  branch,
+  onClose,
+  onAddLog,
+  onRefreshTree,
+}) {
   const dispatch = useDispatch();
   const { getToken } = useAuth();
   const { loading } = useSelector((s) => s.github);
@@ -483,7 +566,9 @@ function PullModal({ workspaceId, repo, branch, onClose, onAddLog, onRefreshTree
     onAddLog?.(`📥 Pulling from ${repo.owner}/${repo.name}:${branch}…`);
 
     try {
-      const result = await dispatch(pullFromGitHub({ workspaceId, token })).unwrap();
+      const result = await dispatch(
+        pullFromGitHub({ workspaceId, token }),
+      ).unwrap();
       onAddLog?.(`✅ ${result.message}`);
       setSuccess(`${result.message}`);
       onRefreshTree?.();
@@ -497,21 +582,30 @@ function PullModal({ workspaceId, repo, branch, onClose, onAddLog, onRefreshTree
   return (
     <Modal title="Pull from GitHub" onClose={onClose}>
       <div className="space-y-4">
-        <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 px-4 py-3">
-          <p className="text-[10px] uppercase tracking-widest text-slate-500">Pulling from</p>
+        <div className="rounded-lg border border-[#30363d]/60 bg-[#0d1117]/40 px-4 py-3">
+          <p className="text-[10px] uppercase tracking-widest text-[#8b949e]">
+            Pulling from
+          </p>
           <p className="mt-0.5 text-sm font-semibold text-slate-100">
             {repo.owner}/{repo.name}
-            <span className="ml-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-normal text-cyan-400">
+            <span className="ml-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-normal text-[#58a6ff]">
               {branch}
             </span>
           </p>
         </div>
 
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-300">
-          ⚠️ Pulling will overwrite local changes for files that exist in the remote repository.
+          ⚠️ Pulling will overwrite local changes for files that exist in the
+          remote repository.
         </div>
 
-        {error   && <StatusBanner type="error"   message={error}   onDismiss={() => setError(null)} />}
+        {error && (
+          <StatusBanner
+            type="error"
+            message={error}
+            onDismiss={() => setError(null)}
+          />
+        )}
         {success && <StatusBanner type="success" message={success} />}
 
         <div className="flex items-center gap-3 pt-1">
@@ -524,7 +618,9 @@ function PullModal({ workspaceId, repo, branch, onClose, onAddLog, onRefreshTree
             <Download size={13} />
             {loading ? "Pulling…" : "Pull"}
           </Btn>
-          <Btn onClick={onClose} variant="ghost">Cancel</Btn>
+          <Btn onClick={onClose} variant="ghost">
+            Cancel
+          </Btn>
         </div>
       </div>
     </Modal>
@@ -566,31 +662,39 @@ function BranchesModal({ workspaceId, currentBranch, onClose, onAddLog }) {
     <Modal title="Switch Branch" onClose={onClose}>
       <div className="space-y-4">
         {branchesLoading ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-xs text-slate-500">
+          <div className="flex items-center justify-center gap-2 py-8 text-xs text-[#8b949e]">
             <Loader2 size={13} className="animate-spin" /> Loading branches…
           </div>
         ) : branches.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-500">No branches found</div>
+          <div className="py-8 text-center text-xs text-[#8b949e]">
+            No branches found
+          </div>
         ) : (
-          <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-700 bg-slate-800/40">
+          <div className="max-h-64 overflow-y-auto rounded-lg border border-[#30363d] bg-[#0d1117]/40">
             {branches.map((b) => (
               <button
                 key={b.name}
                 onClick={() => handleSwitch(b.name)}
                 disabled={loading}
-                className={`flex w-full items-center gap-3 border-b border-slate-700/50 px-3 py-2.5 text-left transition last:border-0 hover:bg-slate-700/40 ${
+                className={`flex w-full items-center gap-3 border-b border-[#30363d]/50 px-3 py-2.5 text-left transition last:border-0 hover:bg-[#30363d]/40 ${
                   b.name === currentBranch ? "bg-emerald-500/10" : ""
                 }`}
               >
                 <GitBranch
                   size={13}
-                  className={b.name === currentBranch ? "text-emerald-400" : "text-slate-500"}
+                  className={
+                    b.name === currentBranch
+                      ? "text-[#3fb950]"
+                      : "text-[#8b949e]"
+                  }
                 />
-                <span className={`flex-1 text-xs ${b.name === currentBranch ? "font-semibold text-emerald-300" : "text-slate-300"}`}>
+                <span
+                  className={`flex-1 text-xs ${b.name === currentBranch ? "font-semibold text-emerald-300" : "text-[#c9d1d9]"}`}
+                >
                   {b.name}
                 </span>
                 {b.name === currentBranch && (
-                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">
+                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-[#3fb950]">
                     current
                   </span>
                 )}
@@ -599,10 +703,22 @@ function BranchesModal({ workspaceId, currentBranch, onClose, onAddLog }) {
           </div>
         )}
 
-        {error   && <StatusBanner type="error"   message={error}   onDismiss={() => setError(null)} />}
+        {error && (
+          <StatusBanner
+            type="error"
+            message={error}
+            onDismiss={() => setError(null)}
+          />
+        )}
         {success && <StatusBanner type="success" message={success} />}
 
-        <Btn onClick={onClose} variant="ghost" className="w-full justify-center">Close</Btn>
+        <Btn
+          onClick={onClose}
+          variant="ghost"
+          className="w-full justify-center"
+        >
+          Close
+        </Btn>
       </div>
     </Modal>
   );
@@ -624,26 +740,32 @@ function CommitsModal({ workspaceId, onClose }) {
 
   const formatDate = (dateStr) => {
     const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
   return (
     <Modal title="Commit History" onClose={onClose} width="max-w-2xl">
       <div className="space-y-3">
         {commitsLoading ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-xs text-slate-500">
+          <div className="flex items-center justify-center gap-2 py-10 text-xs text-[#8b949e]">
             <Loader2 size={14} className="animate-spin" /> Loading commits…
           </div>
         ) : error ? (
           <StatusBanner type="error" message={error} />
         ) : commits.length === 0 ? (
-          <div className="py-10 text-center text-xs text-slate-500">No commits found</div>
+          <div className="py-10 text-center text-xs text-[#8b949e]">
+            No commits found
+          </div>
         ) : (
           <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
             {commits.map((commit) => (
               <div
                 key={commit.sha}
-                className="rounded-lg border border-slate-700/60 bg-slate-800/40 px-4 py-3"
+                className="rounded-lg border border-[#30363d]/60 bg-[#0d1117]/40 px-4 py-3"
               >
                 <div className="flex items-start justify-between gap-3">
                   <p className="flex-1 text-xs font-medium text-slate-100 leading-snug">
@@ -653,12 +775,12 @@ function CommitsModal({ workspaceId, onClose }) {
                     href={commit.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 text-slate-600 transition hover:text-cyan-400"
+                    className="shrink-0 text-[#484f58] transition hover:text-[#58a6ff]"
                   >
                     <ExternalLink size={11} />
                   </a>
                 </div>
-                <div className="mt-2 flex items-center gap-4 text-[10px] text-slate-500">
+                <div className="mt-2 flex items-center gap-4 text-[10px] text-[#8b949e]">
                   <span className="flex items-center gap-1">
                     <User size={9} /> {commit.author}
                   </span>
@@ -674,7 +796,13 @@ function CommitsModal({ workspaceId, onClose }) {
           </div>
         )}
 
-        <Btn onClick={onClose} variant="ghost" className="w-full justify-center">Close</Btn>
+        <Btn
+          onClick={onClose}
+          variant="ghost"
+          className="w-full justify-center"
+        >
+          Close
+        </Btn>
       </div>
     </Modal>
   );
@@ -689,10 +817,12 @@ function SettingsModal({ workspaceId, repo, branch, onClose, onDisconnected }) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState(null);
 
+  const now = useMemo(() => Date.now(), []);
+
   const formatDate = (dateStr) => {
     if (!dateStr) return "Never";
     const d = new Date(dateStr);
-    const diff = Math.round((Date.now() - d) / 60000);
+    const diff = Math.round((now - d) / 60000);
     if (diff < 1) return "Just now";
     if (diff < 60) return `${diff} minute${diff !== 1 ? "s" : ""} ago`;
     const hrs = Math.round(diff / 60);
@@ -701,7 +831,10 @@ function SettingsModal({ workspaceId, repo, branch, onClose, onDisconnected }) {
   };
 
   const handleDisconnect = async () => {
-    if (!confirming) { setConfirming(true); return; }
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
     const token = await getToken();
     if (!token) return;
     try {
@@ -714,41 +847,49 @@ function SettingsModal({ workspaceId, repo, branch, onClose, onDisconnected }) {
   };
 
   const rows = [
-    ["Connected to",    `${repo.owner}/${repo.name}`],
-    ["Repository URL",  repo.url],
-    ["Active branch",   branch],
-    ["Last synced",     formatDate(repo.lastSyncedAt)],
+    ["Connected to", `${repo.owner}/${repo.name}`],
+    ["Repository URL", repo.url],
+    ["Active branch", branch],
+    ["Last synced", formatDate(repo.lastSyncedAt)],
   ];
 
   return (
     <Modal title="GitHub Settings" onClose={onClose}>
       <div className="space-y-4">
-        <div className="overflow-hidden rounded-lg border border-slate-700/60">
+        <div className="overflow-hidden rounded-lg border border-[#30363d]/60">
           {rows.map(([label, value], i) => (
             <div
               key={label}
               className={`flex items-center gap-4 px-4 py-3 text-xs ${
-                i !== rows.length - 1 ? "border-b border-slate-700/50" : ""
+                i !== rows.length - 1 ? "border-b border-[#30363d]/50" : ""
               }`}
             >
-              <span className="w-28 shrink-0 text-slate-500">{label}</span>
+              <span className="w-28 shrink-0 text-[#8b949e]">{label}</span>
               {label === "Repository URL" ? (
                 <a
                   href={value}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 truncate text-cyan-400 hover:underline"
+                  className="flex items-center gap-1 truncate text-[#58a6ff] hover:underline"
                 >
                   {value} <ExternalLink size={9} />
                 </a>
               ) : (
-                <span className="truncate font-medium text-slate-200">{value}</span>
+                <span className="truncate font-medium text-[#c9d1d9]">
+                  {value}
+                </span>
               )}
             </div>
           ))}
         </div>
 
-        {error && <StatusBanner type="error" message={error} onDismiss={() => setError(null)} />}
+        {error && (
+          <StatusBanner
+            type="error"
+            message={error}
+            onDismiss={() => setError(null)}
+          />
+        )}
 
         {confirming && (
           <StatusBanner
@@ -767,7 +908,13 @@ function SettingsModal({ workspaceId, repo, branch, onClose, onDisconnected }) {
             <Unlink size={13} />
             {confirming ? "Confirm Disconnect" : "Disconnect Repository"}
           </Btn>
-          <Btn onClick={() => { setConfirming(false); onClose(); }} variant="ghost">
+          <Btn
+            onClick={() => {
+              setConfirming(false);
+              onClose();
+            }}
+            variant="ghost"
+          >
             Cancel
           </Btn>
         </div>
@@ -778,7 +925,7 @@ function SettingsModal({ workspaceId, repo, branch, onClose, onDisconnected }) {
 
 // ─── Main GitHubPanel ─────────────────────────────────────────────────────────
 
-export default function GitHubPanel({ workspaceId, onAddLog, onRefreshTree }) {
+export default function GitHubPanel({ isOpen, onClose, workspaceId, onAddLog, onRefreshTree }) {
   const dispatch = useDispatch();
   const { getToken } = useAuth();
 
@@ -788,35 +935,23 @@ export default function GitHubPanel({ workspaceId, onAddLog, onRefreshTree }) {
     isRepoLinked,
     repo,
     currentBranch,
-    loading,
     statusChecked,
   } = useSelector((s) => s.github);
 
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeModal, setActiveModal] = useState(null);
-  const dropdownRef = useRef(null);
 
   // ── Fetch status on mount ──
   useEffect(() => {
-    if (!workspaceId || statusChecked) return;
+    if (!workspaceId || statusChecked || !isOpen) return;
     (async () => {
       const token = await getToken();
       if (token) dispatch(fetchGitHubStatus({ workspaceId, token }));
     })();
-  }, [dispatch, getToken, workspaceId, statusChecked]);
+  }, [dispatch, getToken, workspaceId, statusChecked, isOpen]);
 
-  // ── Close dropdown on outside click ──
-  useEffect(() => {
-    const handler = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const openModal = (name) => { setActiveModal(name); setDropdownOpen(false); };
+  const openModal = (name) => {
+    setActiveModal(name);
+  };
   const closeModal = useCallback(() => setActiveModal(null), []);
 
   const handleRefreshStatus = async () => {
@@ -824,23 +959,11 @@ export default function GitHubPanel({ workspaceId, onAddLog, onRefreshTree }) {
     if (token) dispatch(fetchGitHubStatus({ workspaceId, token }));
   };
 
-  // ── Determine button appearance ──
-  const isFullyConnected = isAuthenticated && isRepoLinked;
-  const btnColor = isFullyConnected
-    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20"
-    : "border-slate-600/60 bg-slate-800/60 text-slate-400 hover:bg-slate-700/60 hover:text-slate-300";
-
-  const statusDot = isFullyConnected
-    ? "bg-emerald-400"
-    : isAuthenticated
-    ? "bg-amber-400"
-    : "bg-slate-500";
-
-  // ── Dropdown menu items ──
+  // ── Dropdown menu items (now rendered in Modal) ──
   const renderDropdownContent = () => {
     if (!statusChecked) {
       return (
-        <div className="flex items-center justify-center gap-2 py-4 text-xs text-slate-500">
+        <div className="flex items-center justify-center gap-2 py-4 text-xs text-[#8b949e]">
           <Loader2 size={12} className="animate-spin" /> Checking status…
         </div>
       );
@@ -849,17 +972,17 @@ export default function GitHubPanel({ workspaceId, onAddLog, onRefreshTree }) {
     if (!isAuthenticated) {
       return (
         <>
-          <div className="border-b border-slate-700/60 px-3 py-2">
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <XCircle size={12} className="text-slate-500" /> Not connected to GitHub
+          <div className="border-b border-[#30363d] px-3 py-3">
+            <div className="flex items-center gap-2 text-xs text-[#8b949e]">
+              <XCircle size={12} className="text-[#8b949e]" /> Not connected to GitHub
             </div>
           </div>
-          <div className="p-2">
+          <div className="p-3">
             <button
               onClick={() => openModal("connect")}
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-slate-200 transition hover:bg-slate-700"
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-[#c9d1d9] transition hover:bg-[#21262d]"
             >
-              <Github size={13} className="text-slate-400" /> Connect GitHub Account
+              <Github size={13} className="text-[#8b949e]" /> Connect GitHub Account
             </button>
           </div>
         </>
@@ -869,22 +992,24 @@ export default function GitHubPanel({ workspaceId, onAddLog, onRefreshTree }) {
     if (!isRepoLinked) {
       return (
         <>
-          <div className="border-b border-slate-700/60 px-3 py-2">
-            <div className="flex items-center gap-2 text-xs text-emerald-400">
+          <div className="border-b border-[#30363d] px-3 py-3">
+            <div className="flex items-center gap-2 text-xs text-[#3fb950]">
               <CheckCircle2 size={12} /> {user?.username || "Connected"}
             </div>
-            <p className="mt-0.5 text-[10px] text-slate-500">No repository linked yet</p>
+            <p className="mt-0.5 text-[10px] text-[#8b949e]">
+              No repository linked yet
+            </p>
           </div>
-          <div className="p-2">
+          <div className="p-3">
             <button
               onClick={() => openModal("link")}
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-slate-200 transition hover:bg-slate-700"
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-[#c9d1d9] transition hover:bg-[#21262d]"
             >
-              <Link2 size={13} className="text-cyan-400" /> Link Repository
+              <Link2 size={13} className="text-[#58a6ff]" /> Link Repository
             </button>
             <button
               onClick={handleRefreshStatus}
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-700 hover:text-slate-200"
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-[#8b949e] transition hover:bg-[#21262d] hover:text-[#c9d1d9]"
             >
               <RefreshCw size={12} /> Refresh status
             </button>
@@ -896,65 +1021,69 @@ export default function GitHubPanel({ workspaceId, onAddLog, onRefreshTree }) {
     // Fully connected
     return (
       <>
-        <div className="border-b border-slate-700/60 px-3 py-2">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-300">
+        <div className="border-b border-[#30363d] px-3 py-3">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-[#3fb950]">
             <CheckCircle2 size={12} />
             {repo.owner}/{repo.name}
           </div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-slate-500">
+          <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-[#8b949e]">
             <GitBranch size={9} /> {currentBranch}
             {user?.avatar && (
-              <img src={user.avatar} alt="" className="ml-auto h-4 w-4 rounded-full" />
+              <img
+                src={user.avatar}
+                alt=""
+                className="ml-auto h-4 w-4 rounded-full"
+              />
             )}
           </div>
         </div>
-        <div className="p-2 space-y-0.5">
-          <DropdownItem icon={<Upload size={13} className="text-emerald-400" />} label="Push to GitHub" onClick={() => openModal("push")} />
-          <DropdownItem icon={<Download size={13} className="text-cyan-400" />} label="Pull from GitHub" onClick={() => openModal("pull")} />
-          <div className="my-1 border-t border-slate-700/60" />
-          <DropdownItem icon={<GitBranch size={13} className="text-purple-400" />} label={`Branches: ${currentBranch}`} onClick={() => openModal("branches")} />
-          <DropdownItem icon={<GitCommit size={13} className="text-amber-400" />} label="View Commits" onClick={() => openModal("commits")} />
-          <div className="my-1 border-t border-slate-700/60" />
-          <DropdownItem icon={<Settings size={13} className="text-slate-400" />} label="Repository Settings" onClick={() => openModal("settings")} />
+        <div className="p-3 space-y-1">
+          <DropdownItem
+            icon={<Upload size={13} className="text-[#3fb950]" />}
+            label="Push to GitHub"
+            onClick={() => openModal("push")}
+          />
+          <DropdownItem
+            icon={<Download size={13} className="text-[#58a6ff]" />}
+            label="Pull from GitHub"
+            onClick={() => openModal("pull")}
+          />
+          <div className="my-2 border-t border-[#30363d]" />
+          <DropdownItem
+            icon={<GitBranch size={13} className="text-[#d2a8ff]" />}
+            label={`Branches: ${currentBranch}`}
+            onClick={() => openModal("branches")}
+          />
+          <DropdownItem
+            icon={<GitCommit size={13} className="text-[#d29922]" />}
+            label="View Commits"
+            onClick={() => openModal("commits")}
+          />
+          <div className="my-2 border-t border-[#30363d]" />
+          <DropdownItem
+            icon={<Settings size={13} className="text-[#8b949e]" />}
+            label="Repository Settings"
+            onClick={() => openModal("settings")}
+          />
         </div>
       </>
     );
   };
 
+  if (!isOpen) return null;
+
   return (
     <>
-      {/* ── Dropdown Trigger Button ── */}
-      <div className="relative" ref={dropdownRef}>
-        <button
-          id="github-panel-btn"
-          onClick={() => setDropdownOpen((o) => !o)}
-          className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${btnColor}`}
-        >
-          {loading ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <span className={`h-1.5 w-1.5 rounded-full ${statusDot}`} />
-          )}
-          <Github size={13} />
-          GitHub
-          <ChevronDown
-            size={11}
-            className={`transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
-          />
-        </button>
-
-        {/* ── Dropdown Menu ── */}
-        {dropdownOpen && (
-          <div className="absolute right-0 top-full z-40 mt-2 w-64 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/50">
+      {!activeModal && (
+        <Modal title="GitHub Source Control" onClose={onClose} width="max-w-md">
+          <div className="-m-5">
             {renderDropdownContent()}
           </div>
-        )}
-      </div>
+        </Modal>
+      )}
 
       {/* ── Modals ── */}
-      {activeModal === "connect" && (
-        <ConnectModal onClose={closeModal} />
-      )}
+      {activeModal === "connect" && <ConnectModal onClose={closeModal} />}
 
       {activeModal === "link" && (
         <LinkRepoModal
@@ -1017,7 +1146,7 @@ function DropdownItem({ icon, label, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs text-slate-300 transition hover:bg-slate-700 hover:text-slate-100"
+      className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs text-[#c9d1d9] transition hover:bg-[#21262d] hover:text-white"
     >
       {icon}
       {label}
