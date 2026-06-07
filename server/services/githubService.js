@@ -45,19 +45,25 @@ class GitHubService {
    */
   async getAccessToken(userId) {
     console.log("🔐 getting access token...");
-    
+
     try {
       const tokenResponse = await clerkClient.users.getUserOauthAccessToken(
-        userId,       // Clerk user ID (e.g. from session)
+        userId,
         "oauth_github"
       );
 
-      const githubAccessToken = tokenResponse[0].token;
+      // Clerk SDK may return an array directly or { data: [...] }
+      const tokens = Array.isArray(tokenResponse)
+        ? tokenResponse
+        : tokenResponse?.data || [];
 
-      if (!githubAccessToken) {
-        throw new Error("Unable to get the AccessToken");
+      if (!tokens.length || !tokens[0]?.token) {
+        throw new Error(
+          "GitHub account not connected. Please connect your GitHub account via your profile settings."
+        );
       }
 
+      const githubAccessToken = tokens[0].token;
       console.log("✅ OAuth token obtained");
       return githubAccessToken;
     } catch (error) {

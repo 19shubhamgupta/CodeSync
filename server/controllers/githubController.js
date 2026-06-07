@@ -3,51 +3,65 @@ const Workspace = require("../models/workspace");
 const FileNode = require("../models/fileNode");
 const axios = require("axios");
 
+
 /**
- * GET /api/github/callback
- * GitHub OAuth callback (exchanges code for token)
+ * GET /api/github/status
+ * Check GitHub connection status for a workspace
  */
-async function handleOAuthCallback(req, res) {
-  console.log("🔄 GitHub OAuth callback received...");
-  
+async function getGitHubStatus(req, res) {
+  console.log("🔍 Checking GitHub status...");
+
   try {
-    const { code } = req.query;
+    const { workspaceId } = req.query;
 
-    if (!code) {
-      return res.status(400).json({ error: "Missing authorization code" });
+    if (!workspaceId) {
+      return res.status(400).json({ error: "Missing workspaceId" });
     }
 
-    const response = await axios.post(
-      "https://github.com/login/oauth/access_token",
-      {
-        client_id: process.env.GITHUB_CLIENT_ID,
-        client_secret: process.env.GITHUB_CLIENT_SECRET,
-        code,
-      },
-      { headers: { Accept: "application/json" } }
-    );
-
-    const accessToken = response.data.access_token;
-
-    if (!accessToken) {
-      return res.status(400).json({ error: "Failed to exchange authorization code" });
+    const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return res.status(404).json({ error: "Workspace not found" });
     }
 
-    const userInfo = await githubService.getUserInfo(accessToken);
+    // Try to get GitHub token from Clerk
+    let githubUser = null;
+    let isGitHubAuthConnected = false;
 
-    console.log(`✅ OAuth successful for user: ${userInfo.login}`);
+    try {
+      const accessToken = await githubService.getAccessToken(req.user.sub);
+      if (accessToken) {
+        isGitHubAuthConnected = true;
+        const userInfo = await githubService.getUserInfo(accessToken);
+        githubUser = {
+          username: userInfo.login,
+          name: userInfo.name,
+          avatar: userInfo.avatar_url,
+        };
+      }
+    } catch (err) {
+      // GitHub not connected via Clerk — not a fatal error
+      console.log("ℹ️ GitHub not connected via Clerk:", err.message);
+    }
+
+    const gi = workspace.githubIntegration || {};
 
     res.json({
       success: true,
-      accessToken,
-      user: {
-        username: userInfo.login,
-        name: userInfo.name,
-        avatar: userInfo.avatar_url,
-      },
+      isGitHubAuthConnected,
+      githubUser,
+      isRepoLinked: gi.isConnected || false,
+      repo: gi.isConnected
+        ? {
+            owner: gi.repoOwner,
+            name: gi.repoName,
+            url: gi.repoUrl,
+            branch: gi.branch || "main",
+            lastSyncedAt: gi.lastSyncedAt || null,
+          }
+        : null,
     });
   } catch (error) {
-    console.error("❌ OAuth error:", error.message);
+    console.error("❌ Status check error:", error.message);
     res.status(500).json({ error: error.message });
   }
 }
@@ -58,10 +72,9 @@ async function handleOAuthCallback(req, res) {
  */
 async function getUserRepos(req, res) {
   console.log("📚 Fetching user repositories...");
-  
+
   try {
     const accessToken = await githubService.getAccessToken(req.user.sub);
-
     const repos = await githubService.getUserRepos(accessToken);
 
     res.json({
@@ -80,14 +93,12 @@ async function getUserRepos(req, res) {
  */
 async function createRepository(req, res) {
   console.log("🆕 Creating GitHub repository...");
-  
+
   try {
     const { repoName, description } = req.body;
 
     if (!repoName) {
-      return res
-        .status(400)
-        .json({ error: "Missing repoName" });
+      return res.status(400).json({ error: "Missing repoName" });
     }
 
     const accessToken = await githubService.getAccessToken(req.user.sub);
@@ -114,18 +125,15 @@ async function createRepository(req, res) {
  */
 async function linkRepository(req, res) {
   console.log("🔗 Linking workspace to GitHub repository...");
-  
+
   try {
-    const { workspaceId, repoOwner, repoName, branch } =
-      req.body;
+    const { workspaceId, repoOwner, repoName, branch } = req.body;
 
     if (!workspaceId || !repoOwner || !repoName) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     const accessToken = await githubService.getAccessToken(req.user.sub);
-
-    // Update workspace
     const encryptedToken = githubService.encryptToken(accessToken);
 
     const workspace = await Workspace.findByIdAndUpdate(
@@ -167,46 +175,48 @@ async function linkRepository(req, res) {
 /**
  * POST /api/github/push
  * Push workspace code to GitHub
+ * rootFileNodeId is optional — omit to push ALL workspace files
  */
 async function pushToGitHub(req, res) {
   console.log("📤 Pushing workspace to GitHub...");
-  
+
   try {
     const { workspaceId, rootFileNodeId, commitMessage } = req.body;
 
-    if (!workspaceId || !rootFileNodeId) {
-      return res
-        .status(400)
-        .json({ error: "Missing workspaceId or rootFileNodeId" });
+    if (!workspaceId) {
+      return res.status(400).json({ error: "Missing workspaceId" });
     }
 
-    // Get workspace
     const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
 
     if (!workspace.githubIntegration.isConnected) {
       return res.status(400).json({ error: "Repository not linked" });
     }
 
-    // Collect all files
+    // Collect all files (rootFileNodeId is optional; null = all workspace files)
     console.log("📁 Collecting files...");
-    const fileMap = await collectAllFiles(workspaceId, rootFileNodeId);
+    const fileMap = await collectAllFiles(workspaceId, rootFileNodeId || null);
 
-    // Decrypt token
+    if (Object.keys(fileMap).length === 0) {
+      return res.status(400).json({ error: "No files found to push" });
+    }
+
     const accessToken = githubService.decryptToken(
       workspace.githubIntegration.accessToken
     );
 
-    // Push to GitHub
     const result = await githubService.pushToGitHub(
       accessToken,
       workspace.githubIntegration.repoOwner,
       workspace.githubIntegration.repoName,
       fileMap,
-      commitMessage,
+      commitMessage || "Updated from CodeSync",
       workspace.githubIntegration.branch
     );
 
-    // Update last synced time
     await Workspace.findByIdAndUpdate(workspaceId, {
       "githubIntegration.lastSyncedAt": new Date(),
     });
@@ -216,6 +226,7 @@ async function pushToGitHub(req, res) {
     res.json({
       success: true,
       message: `Pushed ${Object.keys(fileMap).length} files to GitHub`,
+      fileCount: Object.keys(fileMap).length,
       result,
     });
   } catch (error) {
@@ -230,7 +241,7 @@ async function pushToGitHub(req, res) {
  */
 async function pullFromGitHub(req, res) {
   console.log("📥 Pulling from GitHub...");
-  
+
   try {
     const { workspaceId } = req.body;
 
@@ -238,19 +249,19 @@ async function pullFromGitHub(req, res) {
       return res.status(400).json({ error: "Missing workspaceId" });
     }
 
-    // Get workspace
     const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
 
     if (!workspace.githubIntegration.isConnected) {
       return res.status(400).json({ error: "Repository not linked" });
     }
 
-    // Decrypt token
     const accessToken = githubService.decryptToken(
       workspace.githubIntegration.accessToken
     );
 
-    // Pull from GitHub
     const pullResult = await githubService.pullFromGitHub(
       accessToken,
       workspace.githubIntegration.repoOwner,
@@ -258,11 +269,9 @@ async function pullFromGitHub(req, res) {
       workspace.githubIntegration.branch
     );
 
-    // Update workspace files
     console.log("🔄 Updating workspace files...");
     await updateWorkspaceFilesFromGitHub(workspaceId, pullResult.files);
 
-    // Update last synced time
     await Workspace.findByIdAndUpdate(workspaceId, {
       "githubIntegration.lastSyncedAt": new Date(),
     });
@@ -272,6 +281,7 @@ async function pullFromGitHub(req, res) {
     res.json({
       success: true,
       message: `Pulled ${Object.keys(pullResult.files).length} files from GitHub`,
+      fileCount: Object.keys(pullResult.files).length,
     });
   } catch (error) {
     console.error("❌ Error:", error.message);
@@ -285,7 +295,7 @@ async function pullFromGitHub(req, res) {
  */
 async function getBranches(req, res) {
   console.log("🌿 Getting branches...");
-  
+
   try {
     const { workspaceId } = req.query;
 
@@ -294,6 +304,9 @@ async function getBranches(req, res) {
     }
 
     const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
 
     if (!workspace.githubIntegration.isConnected) {
       return res.status(400).json({ error: "Repository not linked" });
@@ -328,7 +341,7 @@ async function getBranches(req, res) {
  */
 async function switchBranch(req, res) {
   console.log("🌿 Switching branch...");
-  
+
   try {
     const { workspaceId, branchName } = req.body;
 
@@ -337,17 +350,17 @@ async function switchBranch(req, res) {
     }
 
     const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
 
     if (!workspace.githubIntegration.isConnected) {
       return res.status(400).json({ error: "Repository not linked" });
     }
 
-    // Update workspace
     await Workspace.findByIdAndUpdate(
       workspaceId,
-      {
-        "githubIntegration.branch": branchName,
-      },
+      { "githubIntegration.branch": branchName },
       { new: true }
     );
 
@@ -369,7 +382,7 @@ async function switchBranch(req, res) {
  */
 async function getCommits(req, res) {
   console.log("📋 Getting commits...");
-  
+
   try {
     const { workspaceId } = req.query;
 
@@ -378,6 +391,9 @@ async function getCommits(req, res) {
     }
 
     const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
 
     if (!workspace.githubIntegration.isConnected) {
       return res.status(400).json({ error: "Repository not linked" });
@@ -407,24 +423,95 @@ async function getCommits(req, res) {
 }
 
 /**
- * Helper: Collect all files from workspace (single query, parentId-based)
+ * POST /api/github/disconnect
+ * Disconnect/unlink a repository from a workspace
  */
-async function collectAllFiles(workspaceId, rootFolderId) {
-  const allNodes = await FileNode.find({ workspaceId }).lean();
+async function disconnectRepository(req, res) {
+  console.log("🔌 Disconnecting repository...");
 
+  try {
+    const { workspaceId } = req.body;
+
+    if (!workspaceId) {
+      return res.status(400).json({ error: "Missing workspaceId" });
+    }
+
+    await Workspace.findByIdAndUpdate(
+      workspaceId,
+      {
+        "githubIntegration.isConnected": false,
+        "githubIntegration.repoOwner": null,
+        "githubIntegration.repoName": null,
+        "githubIntegration.repoUrl": null,
+        "githubIntegration.accessToken": null,
+        "githubIntegration.branch": "main",
+        "githubIntegration.linkedAt": null,
+        "githubIntegration.lastSyncedAt": null,
+      },
+      { new: true }
+    );
+
+    console.log("✅ Repository disconnected");
+
+    res.json({
+      success: true,
+      message: "Repository disconnected successfully",
+    });
+  } catch (error) {
+    console.error("❌ Error:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+/**
+ * Helper: Collect all files from workspace
+ * If rootFolderId is null — collects ALL files in the workspace
+ * If rootFolderId is provided — collects files only in that subtree
+ */
+async function collectAllFiles(workspaceId, rootFolderId = null) {
+  const allNodes = await FileNode.find({ workspaceId }).lean();
   if (allNodes.length === 0) return {};
 
+  // Build a map for fast lookups
   const nodeMap = {};
   for (const node of allNodes) {
     nodeMap[node._id.toString()] = node;
   }
 
+  // Helper to build relative path from a node
+  function getFilePath(node, stopAtId = null) {
+    const nodeId = node._id.toString();
+    if (stopAtId && nodeId === stopAtId) return "";
+
+    const parentId = node.parentId?.toString();
+    if (!parentId) return node.name;
+
+    // Stop recursion at the root folder boundary
+    if (stopAtId && parentId === stopAtId) return node.name;
+
+    const parent = nodeMap[parentId];
+    if (!parent) return node.name;
+
+    const parentPath = getFilePath(parent, stopAtId);
+    return parentPath ? `${parentPath}/${node.name}` : node.name;
+  }
+
+  // --- Case 1: push ALL workspace files ---
+  if (!rootFolderId) {
+    const fileMap = {};
+    for (const node of allNodes) {
+      if (node.type !== "file") continue;
+      fileMap[getFilePath(node, null)] = node.content || "";
+    }
+    return fileMap;
+  }
+
+  // --- Case 2: push subtree from rootFolderId ---
   const rootNode = nodeMap[rootFolderId.toString()];
   if (!rootNode) return {};
 
-  const subtreeIds = new Set();
-  subtreeIds.add(rootFolderId.toString());
-
+  // Collect all IDs in the subtree (BFS-style)
+  const subtreeIds = new Set([rootFolderId.toString()]);
   let changed = true;
   while (changed) {
     changed = false;
@@ -438,25 +525,11 @@ async function collectAllFiles(workspaceId, rootFolderId) {
     }
   }
 
-  function getRelativePath(node) {
-    const nodeId = node._id.toString();
-    if (nodeId === rootFolderId.toString()) return "";
-
-    const parentId = node.parentId?.toString();
-    const parent = nodeMap[parentId];
-
-    if (parentId === rootFolderId.toString()) return node.name;
-
-    const parentPath = getRelativePath(parent);
-    return parentPath ? `${parentPath}/${node.name}` : node.name;
-  }
-
   const fileMap = {};
   for (const id of subtreeIds) {
     const node = nodeMap[id];
     if (!node || node.type !== "file") continue;
-
-    const relativePath = getRelativePath(node);
+    const relativePath = getFilePath(node, rootFolderId.toString());
     fileMap[relativePath] = node.content || "";
   }
 
@@ -464,7 +537,7 @@ async function collectAllFiles(workspaceId, rootFolderId) {
 }
 
 /**
- * Helper: Update workspace files from GitHub
+ * Helper: Update workspace files from GitHub pull
  */
 async function updateWorkspaceFilesFromGitHub(workspaceId, fileMap) {
   console.log("💾 Updating workspace files...");
@@ -473,13 +546,9 @@ async function updateWorkspaceFilesFromGitHub(workspaceId, fileMap) {
     const parts = filePath.split("/");
     const fileName = parts.pop();
 
-    // Get or create folder nodes
     let parentId = null;
-    let currentPath = "";
 
     for (const folderName of parts) {
-      currentPath += folderName + "/";
-
       let folderNode = await FileNode.findOne({
         workspaceId,
         name: folderName,
@@ -506,7 +575,6 @@ async function updateWorkspaceFilesFromGitHub(workspaceId, fileMap) {
       parentId = folderNode._id;
     }
 
-    // Create or update file
     let fileNode = await FileNode.findOne({
       workspaceId,
       name: fileName,
@@ -548,12 +616,23 @@ function detectLanguage(fileName) {
     py: "python",
     java: "java",
     md: "markdown",
+    go: "go",
+    rs: "rust",
+    cpp: "cpp",
+    c: "c",
+    rb: "ruby",
+    php: "php",
+    sh: "shell",
+    yml: "yaml",
+    yaml: "yaml",
+    xml: "xml",
+    sql: "sql",
   };
   return langMap[ext] || "plaintext";
 }
 
 module.exports = {
-  handleOAuthCallback,
+  getGitHubStatus,
   getUserRepos,
   createRepository,
   linkRepository,
@@ -562,4 +641,5 @@ module.exports = {
   getBranches,
   switchBranch,
   getCommits,
+  disconnectRepository,
 };

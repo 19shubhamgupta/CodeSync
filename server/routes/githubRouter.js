@@ -3,44 +3,66 @@ const router = express.Router();
 const githubController = require("../controllers/githubController");
 const verifyToken = require("../middleware/verifyToken");
 
+
+
 /**
- * Get user's repositories
+ * GET /api/github/status
+ * Check GitHub auth connection + workspace repo link status
+ */
+router.get("/status", verifyToken, githubController.getGitHubStatus);
+
+/**
+ * POST /api/github/repos
+ * Get user's GitHub repositories (fetches token from Clerk)
  */
 router.post("/repos", verifyToken, githubController.getUserRepos);
 
 /**
- * Create new repository
+ * POST /api/github/create-repo
+ * Create a new GitHub repository
  */
 router.post("/create-repo", verifyToken, githubController.createRepository);
 
 /**
- * Link workspace to repository
+ * POST /api/github/link-repo
+ * Link a workspace to a GitHub repository
  */
 router.post("/link-repo", verifyToken, githubController.linkRepository);
 
 /**
- * Push to GitHub
+ * POST /api/github/push
+ * Push workspace files to GitHub (rootFileNodeId optional — omit to push all)
  */
 router.post("/push", verifyToken, githubController.pushToGitHub);
 
 /**
- * Pull from GitHub
+ * POST /api/github/pull
+ * Pull latest files from GitHub into workspace
  */
 router.post("/pull", verifyToken, githubController.pullFromGitHub);
 
 /**
- * Get branches
+ * GET /api/github/branches
+ * Get repository branches
  */
 router.get("/branches", verifyToken, githubController.getBranches);
 
 /**
- * Switch branch
+ * POST /api/github/switch-branch
+ * Switch the active branch for a workspace
  */
 router.post("/switch-branch", verifyToken, githubController.switchBranch);
 
 /**
- * Get commits
+ * GET /api/github/commits
+ * Get recent commits for the linked repository
  */
 router.get("/commits", verifyToken, githubController.getCommits);
+
+/**
+ * POST /api/github/disconnect
+ * Unlink the GitHub repository from a workspace
+ */
+router.post("/disconnect", verifyToken, githubController.disconnectRepository);
 
 module.exports = router;

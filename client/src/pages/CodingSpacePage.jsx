@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import FolderSidebar from "../components/CodingSpace/FolderSidebar";
 import EditorPane from "../components/CodingSpace/EditorPane";
 import TemplateImportModal from "../components/TemplateImportModal";
+import GitHubPanel from "../components/CodingSpace/GitHubPanel";
 import {
   clearTree,
   fetchNodes,
@@ -22,6 +23,7 @@ import {
   emitFileEdit,
   initializeFileState,
 } from "../store/workspaceSlice";
+import { resetGitHubStatus } from "../store/githubSlice";
 import { applyOperation, calculateOperations, transform } from "../utils/ot";
 
 const CodingSpacePage = () => {
@@ -57,6 +59,9 @@ const CodingSpacePage = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [projectType, setProjectType] = useState(null);
   const logCursorRef = useRef(0);
+  // GitHub terminal tab
+  const [terminalTab, setTerminalTab] = useState("logs"); // "logs" | "git"
+  const [githubLogs, setGithubLogs] = useState([]);
 
   const apiBaseUrl = useMemo(
     () => import.meta.env.VITE_API_BASE_URL || "http://localhost:5000",
@@ -210,6 +215,23 @@ const CodingSpacePage = () => {
     }
   };
 
+  // GitHub log helpers
+  const addGithubLog = useCallback((line) => {
+    setGithubLogs((prev) => [...prev, line]);
+    setTerminalTab("git");
+  }, []);
+
+  const clearGithubLogs = useCallback(() => {
+    setGithubLogs([]);
+  }, []);
+
+  // Refresh file tree (used after pull)
+  const handleRefreshTree = useCallback(async () => {
+    dispatch(clearTree());
+    const token = await getToken();
+    if (token) dispatch(fetchNodes({ workspaceId, parentId: null, token }));
+  }, [dispatch, getToken, workspaceId]);
+
   //for loading root folders
   useEffect(() => {
     if (!isSignedIn || !workspaceId) {
@@ -224,6 +246,8 @@ const CodingSpacePage = () => {
     };
 
     loadRoot();
+    // Reset GitHub status so it re-fetches for the new workspace
+    dispatch(resetGitHubStatus());
   }, [dispatch, getToken, isSignedIn, workspaceId]);
 
   //for establishing socket connection
@@ -531,21 +555,26 @@ const CodingSpacePage = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="flex min-h-screen flex-col">
-        <header className="flex items-center justify-between border-b border-slate-800 bg-slate-950/80 px-6 py-4">
+        <header className="flex items-center justify-between border-b border-slate-800 bg-slate-950/80 px-6 py-3">
           <div>
-            <h1 className="text-base font-semibold text-slate-100">
-              Workspace
-            </h1>
-            <p className="text-xs text-slate-400">
-              Import a template to add multiple stacks.
-            </p>
+            <h1 className="text-base font-semibold text-slate-100">Workspace</h1>
+            <p className="text-xs text-slate-500">Import a template to add multiple stacks.</p>
           </div>
-          <button
-            className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-4 py-2 text-xs font-semibold text-cyan-200 hover:border-cyan-400"
-            onClick={handleOpenTemplateModal}
-          >
-            Import Template
-          </button>
+          {/* Header actions */}
+          <div className="flex items-center gap-2">
+            <GitHubPanel
+              workspaceId={workspaceId}
+              onAddLog={addGithubLog}
+              onClearLogs={clearGithubLogs}
+              onRefreshTree={handleRefreshTree}
+            />
+            <button
+              className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-4 py-2 text-xs font-semibold text-cyan-200 hover:border-cyan-400"
+              onClick={handleOpenTemplateModal}
+            >
+              Import Template
+            </button>
+          </div>
         </header>
         <TemplateImportModal
           isOpen={isTemplateModalOpen}
@@ -578,41 +607,81 @@ const CodingSpacePage = () => {
               onSave={handleEditorSave}
             />
             <section className="border-t border-slate-800 bg-slate-950/90">
-              <div className="flex items-center justify-between px-4 py-2 text-xs uppercase tracking-[0.2em] text-slate-400">
-                <span>Logs</span>
-                {runStatus === "running" && (
-                  <span className="text-emerald-300">Running</span>
-                )}
-                {runStatus === "starting" && (
-                  <span className="text-cyan-300">Starting</span>
-                )}
-                {runStatus === "failed" && (
-                  <span className="text-rose-300">Failed</span>
-                )}
+              {/* Terminal tab bar */}
+              <div className="flex items-center justify-between border-b border-slate-800/60 px-4">
+                <div className="flex">
+                  {[
+                    { key: "logs", label: "Logs" },
+                    { key: "git",  label: "Git" },
+                  ].map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setTerminalTab(key)}
+                      className={`px-4 py-2 text-xs font-medium transition border-b-2 ${
+                        terminalTab === key
+                          ? "border-cyan-500 text-cyan-300"
+                          : "border-transparent text-slate-500 hover:text-slate-300"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 text-xs text-slate-500">
+                  {terminalTab === "logs" && (
+                    <>
+                      {runStatus === "running"  && <span className="text-emerald-400">● Running</span>}
+                      {runStatus === "starting" && <span className="text-cyan-400">◌ Starting</span>}
+                      {runStatus === "failed"   && <span className="text-rose-400">✕ Failed</span>}
+                    </>
+                  )}
+                  {terminalTab === "git" && githubLogs.length > 0 && (
+                    <button
+                      onClick={clearGithubLogs}
+                      className="text-[10px] text-slate-600 hover:text-slate-400"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="h-40 overflow-auto px-4 pb-3 text-xs text-slate-200">
-                {runError && (
-                  <div className="mb-2 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-rose-200">
-                    {runError}
-                  </div>
+
+              {/* Terminal body */}
+              <div className="h-40 overflow-auto px-4 pb-3 pt-2 font-mono text-xs text-slate-200">
+                {/* Run Logs tab */}
+                {terminalTab === "logs" && (
+                  <>
+                    {runError && (
+                      <div className="mb-2 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-rose-200">
+                        {runError}
+                      </div>
+                    )}
+                    {runLogs.length === 0 && !runError && (
+                      <div className="text-slate-600">No run logs yet.</div>
+                    )}
+                    {runLogs.length > 0 && (
+                      <pre className="whitespace-pre-wrap">{runLogs.join("\n")}</pre>
+                    )}
+                    {previewUrl && runStatus === "running" && (
+                      <div className="mt-2 text-slate-400">Preview: {previewUrl}</div>
+                    )}
+                    {projectType === "django" && runStatus === "running" && (
+                      <div className="mt-2 text-slate-400">
+                        Visit /admin in the preview. Login: admin / admin
+                      </div>
+                    )}
+                  </>
                 )}
-                {runLogs.length === 0 && !runError && (
-                  <div className="text-slate-500">No logs yet.</div>
-                )}
-                {runLogs.length > 0 && (
-                  <pre className="whitespace-pre-wrap">
-                    {runLogs.join("\n")}
-                  </pre>
-                )}
-                {previewUrl && runStatus === "running" && (
-                  <div className="mt-2 text-slate-400">
-                    Preview: {`${previewUrl}`}
-                  </div>
-                )}
-                {projectType === "django" && runStatus === "running" && (
-                  <div className="mt-2 text-slate-400">
-                    Visit /admin in the preview. Login: admin / admin
-                  </div>
+
+                {/* Git Logs tab */}
+                {terminalTab === "git" && (
+                  <>
+                    {githubLogs.length === 0 ? (
+                      <div className="text-slate-600">No git activity yet. Use the GitHub panel above to push or pull.</div>
+                    ) : (
+                      <pre className="whitespace-pre-wrap">{githubLogs.join("\n")}</pre>
+                    )}
+                  </>
                 )}
               </div>
             </section>
