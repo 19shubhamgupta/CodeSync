@@ -3,7 +3,7 @@ import App from "./App.jsx";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import HomePage from "./pages/HomePage.jsx";
 import SignInPage from "./pages/SignInPage.jsx";
-import SignupPage from "./pages/SignupPage.jsx";
+import SignupPage from "./pages/SignUpPage.jsx";
 import WorkspacePage from "./pages/WorkspacePage.jsx";
 import CodingSpacePage from "./pages/CodingSpacePage.jsx";
 import { ClerkProvider } from "@clerk/clerk-react";
