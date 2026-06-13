@@ -1,7 +1,8 @@
-const express = require("express");
+import express from "express";
+import * as githubController from "../controllers/githubController.js";
+import verifyToken from "../middleware/verifyToken.js";
+
 const router = express.Router();
-const githubController = require("../controllers/githubController");
-const verifyToken = require("../middleware/verifyToken");
 
 
 
@@ -65,4 +66,4 @@ router.get("/commits", verifyToken, githubController.getCommits);
  */
 router.post("/disconnect", verifyToken, githubController.disconnectRepository);
 
-module.exports = router;
+export default router;

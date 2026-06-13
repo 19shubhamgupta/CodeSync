@@ -1,6 +1,10 @@
-const fs = require("fs");
-const path = require("path");
-const FileNode = require("../models/fileNode");
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import FileNode from "../models/fileNode.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const TEMPLATE_ROOT = path.join(__dirname, "..", "templates");
 
@@ -142,7 +146,7 @@ const copyTemplateToWorkspace = async ({
   };
 };
 
-module.exports = {
+export {
   getAllTemplates,
   copyTemplateToWorkspace,
 };

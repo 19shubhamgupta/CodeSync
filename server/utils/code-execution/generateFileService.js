@@ -1,6 +1,10 @@
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto")
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import crypto from "crypto";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function writeTempDir(workspaceId, fileId, fileMap) {
   const dir = path.join(__dirname, "../../temp",`${workspaceId}-${fileId}-${crypto.randomUUID()}` );
@@ -18,4 +22,4 @@ function writeTempDir(workspaceId, fileId, fileMap) {
   return dir;
 }
 
-module.exports = {writeTempDir}
+export { writeTempDir }

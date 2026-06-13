@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const workspaceSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -27,4 +27,4 @@ const workspaceSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model("Workspace", workspaceSchema);
+export default mongoose.model("Workspace", workspaceSchema);

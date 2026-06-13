@@ -106,4 +106,4 @@ function detectProject(fileMap) {
   throw new Error("Undefined File Type");
 }
 
-module.exports = { detectProject };
+export { detectProject };

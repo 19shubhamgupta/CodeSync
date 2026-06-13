@@ -1,5 +1,5 @@
-const { createProxyMiddleware } = require("http-proxy-middleware");
-const { getRunInfo } = require("./dockerRunService");
+import { createProxyMiddleware } from "http-proxy-middleware";
+import { getRunInfo } from "./dockerRunService.js";
 
 function setupProxyRoutes(app) {
   app.use("/preview/:workspaceId", (req, res, next) => {
@@ -21,4 +21,4 @@ function setupProxyRoutes(app) {
   });
 }
 
-module.exports = { setupProxyRoutes };
+export { setupProxyRoutes };

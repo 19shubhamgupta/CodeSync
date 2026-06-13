@@ -81,4 +81,4 @@ function transform(opA, opB) {
   return transformedB;
 }
 
-module.exports = { applyOperation, transform };
+export { applyOperation, transform };

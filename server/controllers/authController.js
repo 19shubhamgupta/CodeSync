@@ -1,6 +1,6 @@
-const User = require("../models/user");
+import User from "../models/user.js";
 
-exports.createUser = async (req, res) => {
+export const createUser = async (req, res) => {
   try {
     const { userName, email, password } = req.body;
     const clrek_user_id = req.user.sub;

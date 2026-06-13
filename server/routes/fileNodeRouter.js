@@ -1,10 +1,10 @@
-const express = require("express");
-const {
+import express from "express";
+import {
   createFileNode,
   getFileNodes,
   updateFileNode,
-} = require("../controllers/fileNodeController");
-const verifyToken = require("../middleware/verifyToken");
+} from "../controllers/fileNodeController.js";
+import verifyToken from "../middleware/verifyToken.js";
 
 const router = express.Router();
 
@@ -12,4 +12,4 @@ router.post("/", verifyToken, createFileNode);
 router.get("/workspace/:workspaceId", verifyToken, getFileNodes);
 router.patch("/:id", verifyToken, updateFileNode);
 
-module.exports = router;
+export default router;

@@ -1,4 +1,4 @@
-const FileNode = require("../../models/fileNode");
+import FileNode from "../../models/fileNode.js";
 
 async function buildSnapshot(workspaceId, rootFolderId) {
   // fetch ALL nodes for this workspace in one query
@@ -83,4 +83,4 @@ async function buildSnapshot(workspaceId, rootFolderId) {
   return fileMap;
 }
 
-module.exports = { buildSnapshot };
+export { buildSnapshot };

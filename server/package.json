@@ -10,7 +10,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "@clerk/clerk-sdk-node": "^5.1.6",
     "axios": "^1.17.0",

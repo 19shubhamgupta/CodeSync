@@ -29,4 +29,4 @@ function generateDockerfile(projectType) {
   return nodeBase + (nodeCommands[projectType] || nodeCommands["node"]);
 }
 
-module.exports = { generateDockerfile };
+export { generateDockerfile };

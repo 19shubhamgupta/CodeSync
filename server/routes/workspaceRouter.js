@@ -1,5 +1,5 @@
-const express = require("express");
-const {
+import express from "express";
+import {
   getWorkspaceByUserId,
   createWorkspace,
   getWorkspaceById,
@@ -10,8 +10,8 @@ const {
   stopProject,
   getRunStatus,
   getRunLogs,
-} = require("../controllers/workSpaceController");
-const verifyToken = require("../middleware/verifyToken");
+} from "../controllers/workSpaceController.js";
+import verifyToken from "../middleware/verifyToken.js";
 
 const router = express.Router();
 
@@ -26,4 +26,4 @@ router.get("/:workspaceId/logs", verifyToken, getRunLogs);
 router.get("/:id", verifyToken, getWorkspaceById);
 router.post("/:id/members", verifyToken, addMemberToWorkspace);
 
-module.exports = router;
+export default router;

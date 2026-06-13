@@ -1,7 +1,7 @@
-const githubService = require("../services/githubService");
-const Workspace = require("../models/workspace");
-const FileNode = require("../models/fileNode");
-const axios = require("axios");
+import githubService from "../services/githubService.js";
+import Workspace from "../models/workspace.js";
+import FileNode from "../models/fileNode.js";
+import axios from "axios";
 
 
 /**
@@ -631,7 +631,7 @@ function detectLanguage(fileName) {
   return langMap[ext] || "plaintext";
 }
 
-module.exports = {
+export {
   getGitHubStatus,
   getUserRepos,
   createRepository,

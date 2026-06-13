@@ -1,16 +1,16 @@
-const express = require("express");
-const path = require("path");
-const dotenv = require("dotenv");
-const ConnectDB = require("./lib/db");
-const cookieParser = require("cookie-parser");
-const cors = require("cors");
-const authRouter = require("./routes/authRouter");  
-const fileNodeRouter = require("./routes/fileNodeRouter");
-const workspaceRouter = require("./routes/workspaceRouter");
-const githubRouter = require("./routes/githubRouter")
+import express from "express";
+import path from "path";
+import dotenv from "dotenv";
+import ConnectDB from "./lib/db.js";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import authRouter from "./routes/authRouter.js";  
+import fileNodeRouter from "./routes/fileNodeRouter.js";
+import workspaceRouter from "./routes/workspaceRouter.js";
+import githubRouter from "./routes/githubRouter.js"
 
-const { app, server } = require("./lib/socket");
-const { setupProxyRoutes } = require("./utils/code-execution/previewService");
+import { app, server } from "./lib/socket.js";
+import { setupProxyRoutes } from "./utils/code-execution/previewService.js";
 
 dotenv.config();
 

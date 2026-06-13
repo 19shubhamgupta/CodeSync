@@ -1,7 +1,8 @@
-const { Server } = require("socket.io");
-const http = require("http");
-const express = require("express");
-const { applyOperation, transform } = require("../utils/ot");
+import { Server } from "socket.io";
+import http from "http";
+import express from "express";
+import FileNode from "../models/fileNode.js";
+import { applyOperation, transform } from "../utils/ot.js";
 
 const app = express();
 
@@ -56,7 +57,6 @@ io.on("connection", async (socket) => {
       // Initialize file state if doesn't exist — load from DB if available
       if (!fileStates[fileId]) {
         try {
-          const FileNode = require("../models/fileNode");
           const doc = await FileNode.findById(fileId).select("content");
           fileStates[fileId] = {
             content: doc?.content || "",
@@ -124,7 +124,6 @@ io.on("connection", async (socket) => {
 
     if (!fileStates[fileId]) {
       try {
-        const FileNode = require("../models/fileNode");
         const doc = await FileNode.findById(fileId).select("content");
         fileStates[fileId] = {
           content: doc?.content || initialContent || "",
@@ -162,8 +161,6 @@ io.on("connection", async (socket) => {
  * Auto-save: persist file states to database every 5 seconds
  */
 setInterval(async () => {
-  const FileNode = require("../models/fileNode");
-
   for (const [fileId, state] of Object.entries(fileStates)) {
     try {
       await FileNode.findByIdAndUpdate(
@@ -185,4 +182,4 @@ const getSocketIdFromUserId = (receiverId) => {
   return userSocketMap[receiverId];
 };
 
-module.exports = { io, app, server, getSocketIdFromUserId };
+export { io, app, server, getSocketIdFromUserId };

@@ -1,8 +1,8 @@
-const { Octokit } = require("octokit");
-const axios = require("axios");
-const crypto = require("crypto");
-const dotenv = require("dotenv");
-const { clerkClient } = require("@clerk/clerk-sdk-node");
+import { Octokit } from "octokit";
+import axios from "axios";
+import crypto from "crypto";
+import dotenv from "dotenv";
+import { clerkClient } from "@clerk/clerk-sdk-node";
 
 dotenv.config();
 
@@ -371,4 +371,4 @@ class GitHubService {
   }
 }
 
-module.exports = new GitHubService();
+export default new GitHubService();

@@ -1,5 +1,5 @@
-const { createRemoteJWKSet, jwtVerify } = require("jose");
-const User = require("../models/user");
+import { createRemoteJWKSet, jwtVerify } from "jose";
+import User from "../models/user.js";
 
 let jwks;
 
@@ -54,4 +54,4 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-module.exports = verifyToken;
+export default verifyToken;

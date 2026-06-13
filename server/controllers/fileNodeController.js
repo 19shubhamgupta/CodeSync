@@ -1,7 +1,7 @@
-const { io } = require("../lib/socket");
-const FileNode = require("../models/fileNode");
+import { io } from "../lib/socket.js";
+import FileNode from "../models/fileNode.js";
 
-exports.createFileNode = async (req, res) => {
+export const createFileNode = async (req, res) => {
   try {
     const { name, type, parentId, workspaceId, language } = req.body;
     const userId = req.user?.mongoId;
@@ -34,7 +34,7 @@ exports.createFileNode = async (req, res) => {
   }
 };
 
-exports.getFileNodes = async (req, res) => {
+export const getFileNodes = async (req, res) => {
   try {
     const workspaceId = req.params.workspaceId;
     if (!workspaceId) {
@@ -54,7 +54,7 @@ exports.getFileNodes = async (req, res) => {
   }
 };
 
-exports.updateFileNode = async (req, res) => {
+export const updateFileNode = async (req, res) => {
   try {
     const fileNodeId = req.params.id;
     if (!fileNodeId) {

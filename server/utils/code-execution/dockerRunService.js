@@ -1,10 +1,10 @@
 // utils/code-execution/dockerRunService.js
-const { spawnSync, spawn } = require("child_process");
-const path = require("path");
-const fs = require("fs");
-const net = require("net");
-const crypto = require("crypto")
-const { generateDockerfile } = require("./dockerFileGenerator");
+import { spawnSync, spawn } from "child_process";
+import path from "path";
+import fs from "fs";
+import net from "net";
+import crypto from "crypto";
+import { generateDockerfile } from "./dockerFileGenerator.js";
 
 const runningContainers = {}; // workspaceId -> { containerId, port, proc, logs }
 const MAX_LOG_LINES = 1000;
@@ -178,4 +178,4 @@ function getLogs(workspaceId, since = 0) {
   return { lines, next: safeSince + lines.length };
 }
 
-module.exports = { runWorkspace, stopWorkspace, getRunInfo, getLogs };
+export { runWorkspace, stopWorkspace, getRunInfo, getLogs };

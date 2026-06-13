@@ -1,18 +1,18 @@
-const Workspace = require("../models/workspace");
-const User = require("../models/user");
-const FileNode = require("../models/fileNode");
-const templateService = require("../services/templateService");
-const { buildSnapshot } = require("../utils/code-execution/snapShotService");
-const { detectProject } = require("../utils/code-execution/detectionService");
-const { writeTempDir } = require("../utils/code-execution/generateFileService");
-const {
+import Workspace from "../models/workspace.js";
+import User from "../models/user.js";
+import FileNode from "../models/fileNode.js";
+import templateService from "../services/templateService.js";
+import { buildSnapshot } from "../utils/code-execution/snapShotService.js";
+import { detectProject } from "../utils/code-execution/detectionService.js";
+import { writeTempDir } from "../utils/code-execution/generateFileService.js";
+import {
   runWorkspace,
   stopWorkspace,
   getRunInfo,
   getLogs,
-} = require("../utils/code-execution/dockerRunService");
+} from "../utils/code-execution/dockerRunService.js";
 
-exports.getWorkspaceByUserId = async (req, res) => {
+export const getWorkspaceByUserId = async (req, res) => {
   try {
     const userId = req.user?.mongoId;
     if (!userId) {
@@ -56,7 +56,7 @@ exports.getWorkspaceByUserId = async (req, res) => {
   }
 };
 
-exports.createWorkspace = async (req, res) => {
+export const createWorkspace = async (req, res) => {
   try {
     const userId = req.user?.mongoId;
     if (!userId) {
@@ -89,7 +89,7 @@ exports.createWorkspace = async (req, res) => {
   }
 };
 
-exports.getWorkspaceById = async (req, res) => {
+export const getWorkspaceById = async (req, res) => {
   try {
     const workspaceId = req.params.id;
     const workspace = await Workspace.findById(workspaceId);
@@ -106,7 +106,7 @@ exports.getWorkspaceById = async (req, res) => {
   }
 };
 
-exports.addMemberToWorkspace = async (req, res) => {
+export const addMemberToWorkspace = async (req, res) => {
   try {
     const workspaceId = req.params.id;
     const { userId, role } = req.body;
@@ -139,7 +139,7 @@ exports.addMemberToWorkspace = async (req, res) => {
   }
 };
 
-exports.getTemplates = async (req, res) => {
+export const getTemplates = async (req, res) => {
   try {
     const templates = templateService.getAllTemplates();
     return res.status(200).json({ templates });
@@ -149,7 +149,7 @@ exports.getTemplates = async (req, res) => {
   }
 };
 
-exports.importTemplateToWorkspace = async (req, res) => {
+export const importTemplateToWorkspace = async (req, res) => {
   try {
     const userId = req.user?.mongoId;
     if (!userId) {
@@ -193,7 +193,7 @@ exports.importTemplateToWorkspace = async (req, res) => {
   }
 };
 
-exports.runProject = async (req, res) => {
+export const runProject = async (req, res) => {
   try {
     const { fileId, workspaceId } = req.params;
     if (!fileId || !workspaceId) {
@@ -252,7 +252,7 @@ exports.runProject = async (req, res) => {
   }
 };
 
-exports.stopProject = async (req, res) => {
+export const stopProject = async (req, res) => {
   try {
     const { workspaceId } = req.params;
     if (!workspaceId) {
@@ -267,7 +267,7 @@ exports.stopProject = async (req, res) => {
   }
 };
 
-exports.getRunStatus = async (req, res) => {
+export const getRunStatus = async (req, res) => {
   try {
     const { workspaceId } = req.params;
     if (!workspaceId) {
@@ -282,7 +282,7 @@ exports.getRunStatus = async (req, res) => {
   }
 };
 
-exports.getRunLogs = async (req, res) => {
+export const getRunLogs = async (req, res) => {
   try {
     const { workspaceId } = req.params;
     const since = Number(req.query.since || 0);
