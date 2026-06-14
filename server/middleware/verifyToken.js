@@ -1,8 +1,4 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import crypto from "crypto";
-if (typeof globalThis.crypto === "undefined") {
-  globalThis.crypto = crypto.webcrypto;
-}
 import User from "../models/user.js";
 
 let jwks;

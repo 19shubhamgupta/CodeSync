@@ -20,7 +20,7 @@
     "dotenv": "^17.0.1",
     "express": "^4.21.2",
     "http-proxy-middleware": "^4.0.0",
-    "jose": "^6.2.3",
+    "jose": "^5.10.0",
     "mongoose": "^8.16.1",
     "multer": "^2.0.2",
     "octokit": "^5.0.5",
