@@ -10,7 +10,10 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173" ],
+    origin: [
+      "https://code-sync-lac-xi.vercel.app", // Your Vercel domain
+      "http://localhost:5173", // Local testing
+    ],
   },
 });
 
@@ -45,7 +48,14 @@ io.on("connection", async (socket) => {
 
   socket.on(
     "file:edit",
-    async ({ workspaceId, fileId, operation, userId, timestamp, baseRevision }) => {
+    async ({
+      workspaceId,
+      fileId,
+      operation,
+      userId,
+      timestamp,
+      baseRevision,
+    }) => {
       if (!workspaceId || !fileId) {
         return;
       }
@@ -171,7 +181,9 @@ setInterval(async () => {
         },
         { new: true },
       );
-      console.log(`Auto-saved file ${fileId} (${state.content.length} chars, rev ${state.revision})`);
+      console.log(
+        `Auto-saved file ${fileId} (${state.content.length} chars, rev ${state.revision})`,
+      );
     } catch (error) {
       console.error(`Error auto-saving file ${fileId}:`, error);
     }

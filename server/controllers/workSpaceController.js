@@ -1,7 +1,7 @@
 import Workspace from "../models/workspace.js";
 import User from "../models/user.js";
 import FileNode from "../models/fileNode.js";
-import templateService from "../services/templateService.js";
+import * as templateService from "../services/templateService.js";
 import { buildSnapshot } from "../utils/code-execution/snapShotService.js";
 import { detectProject } from "../utils/code-execution/detectionService.js";
 import { writeTempDir } from "../utils/code-execution/generateFileService.js";

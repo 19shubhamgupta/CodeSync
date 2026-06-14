@@ -18,7 +18,10 @@ setupProxyRoutes(app);
 
 app.use(
   cors({
-    origin: "*",
+    origin: [
+      "https://code-sync-lac-xi.vercel.app", // Your Vercel domain
+      "http://localhost:5173", // Local testing
+    ],
     credentials: true,
   })
 );
